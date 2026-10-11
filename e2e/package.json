@@ -9,7 +9,8 @@
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",
-    "report": "playwright show-report"
+    "report": "playwright show-report",
+    "screenshots": "playwright test --config screenshots.config.js"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

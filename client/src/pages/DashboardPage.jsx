@@ -78,7 +78,9 @@ export default function DashboardPage() {
       />
     );
   } else {
-    recentContent = <ApplicationsTable applications={recentQuery.data.items} caption="Recently added applications" />;
+    recentContent = (
+      <ApplicationsTable applications={recentQuery.data.items} caption="Recently added applications" showLocation={false} />
+    );
   }
 
   return (
@@ -99,36 +101,42 @@ export default function DashboardPage() {
           title="We couldn’t load your dashboard"
         />
       ) : (
-        <>
-          <section aria-label="Key metrics" aria-busy={loading}>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-              {loading
-                ? statCards.map((card) => <StatCardSkeleton key={card.label} />)
-                : statCards.map((card) => <StatCard key={card.label} {...card} />)}
-            </div>
-          </section>
-
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
-            <StatusBreakdown byStatus={stats?.byStatus} total={stats?.total ?? 0} loading={loading} />
-            <UpcomingCard />
+        <section aria-label="Key metrics" aria-busy={loading}>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+            {loading
+              ? statCards.map((card) => <StatCardSkeleton key={card.label} />)
+              : statCards.map((card) => <StatCard key={card.label} {...card} />)}
           </div>
-        </>
+        </section>
       )}
 
-      <Card aria-labelledby="recent-applications-title">
-        <CardHeader
-          titleId="recent-applications-title"
-          title="Recently added"
-          description="Your newest applications, most recent first."
-          action={
-            <ButtonLink to="/applications" variant="ghost" size="sm" className="-mr-2">
-              View all
-              <ArrowRight className="size-4" aria-hidden="true" />
-            </ButtonLink>
-          }
-        />
-        {recentContent}
-      </Card>
+      {/* Wide screens: the breakdown and recent applications stack on the left with
+          Upcoming beside both. Upcoming's extra height goes to the flexible second row,
+          so the left-hand cards never stretch into empty space. */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem] xl:grid-rows-[auto_1fr] xl:items-start">
+        {!statsQuery.isError && (
+          <div className="min-w-0 xl:col-start-1">
+            <StatusBreakdown byStatus={stats?.byStatus} total={stats?.total ?? 0} loading={loading} />
+          </div>
+        )}
+        <div className="min-w-0 xl:col-start-2 xl:row-span-2 xl:row-start-1">
+          <UpcomingCard />
+        </div>
+        <Card aria-labelledby="recent-applications-title" className="min-w-0 xl:col-start-1">
+          <CardHeader
+            titleId="recent-applications-title"
+            title="Recently added"
+            description="Your newest applications, most recent first."
+            action={
+              <ButtonLink to="/applications" variant="ghost" size="sm" className="-mr-2">
+                View all
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </ButtonLink>
+            }
+          />
+          {recentContent}
+        </Card>
+      </div>
     </div>
   );
 }

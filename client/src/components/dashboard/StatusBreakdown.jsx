@@ -16,11 +16,13 @@ export function StatusBreakdown({ byStatus, total, loading = false }) {
         title="Status breakdown"
         description="Where each of your applications currently stands."
       />
-      <div className="px-4 py-5 sm:px-5">
+      {/* A container query: the legend's columns follow the card's width, which differs
+          between the dashboard and the analytics page, rather than the viewport's. */}
+      <div className="@container px-4 py-5 sm:px-5">
         {loading ? (
           <div aria-hidden="true">
             <Skeleton className="h-2.5 w-full rounded-full" />
-            <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-7">
+            <div className="mt-5 grid grid-cols-2 gap-4 @md:grid-cols-4 @3xl:grid-cols-7">
               {APPLICATION_STATUSES.map(({ value }) => (
                 <Skeleton key={value} className="h-10" />
               ))}
@@ -39,11 +41,11 @@ export function StatusBreakdown({ byStatus, total, loading = false }) {
                   />
                 ))}
             </div>
-            <ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4 lg:grid-cols-7">
+            <ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-4 @md:grid-cols-4 @3xl:grid-cols-7">
               {APPLICATION_STATUSES.map(({ value, label, tone }) => (
                 <li key={value}>
                   <p className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                    <span className={cn('size-2 rounded-full', getToneStyles(tone).dot)} aria-hidden="true" />
+                    <span className={cn('size-2 shrink-0 rounded-full', getToneStyles(tone).dot)} aria-hidden="true" />
                     {label}
                   </p>
                   <p className="mt-1 text-lg font-semibold text-slate-900 tabular-nums">{byStatus[value]}</p>

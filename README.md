@@ -1,10 +1,12 @@
 # CareerFlow
 
-CareerFlow is a job application tracker for students and job seekers. It keeps every application, interview, deadline, and recruitment update in one place.
+A job application tracker for students and job seekers. Every application, interview, deadline, and recruiter conversation lives in one place, with a Kanban pipeline, a calendar, and analytics on how your search is going.
 
-> **Status: Level 8 of 9: quality and testing.** The full stack (accounts, applications, Kanban pipeline, analytics, calendar, activity timeline, CSV export, saved views) is covered by API tests, UI tests, and a browser end-to-end suite that runs against the real API and MongoDB, including automated WCAG 2.1 AA checks, keyboard-only flows, and phone-size layouts. Everything is computed from the signed-in user's own records. Sample data is only an explicit development option (`VITE_DATA_SOURCE=mock`), and production builds never include it.
+![CareerFlow dashboard showing totals, a status breakdown, upcoming interviews and deadlines, and recently added applications](docs/screenshots/dashboard.png)
 
-## Features so far
+**Live demo:** not deployed yet. The repository is ready to deploy to Render with MongoDB Atlas; see [Deployment](#deployment).
+
+## Features
 
 - **Dashboard:** totals, interviews, offers, rejections, a status breakdown, and recently added applications.
 - **Applications list:**
@@ -23,136 +25,56 @@ CareerFlow is a job application tracker for students and job seekers. It keeps e
 - **CSV export** of the current search and filters, with spreadsheet-safe escaping.
 - **Saved views:** name and re-apply sets of filters, stored per account.
 - **Full application record:** company, title, location, job URL, employment type, salary range, source, applied date, deadline, interview date and time, recruiter contact, notes, and created/updated timestamps.
+- **Accessible and responsive:** keyboard-only use, screen-reader labels, and WCAG 2.1 AA colour contrast (checked automatically with axe-core), and layouts that work from phone to desktop.
+
+## Screenshots
+
+| | |
+| --- | --- |
+| ![Applications list with search, filters, saved views, and CSV export](docs/screenshots/applications.png) | ![Kanban pipeline with one column per status](docs/screenshots/pipeline.png) |
+| **Applications:** search, filters, sorting, saved views, and CSV export | **Pipeline:** drag a card, or use its status menu |
+| ![Month calendar with interviews and deadlines, plus a 30-day agenda](docs/screenshots/calendar.png) | ![Analytics with rates, applications over time, status breakdown, and sources](docs/screenshots/analytics.png) |
+| **Calendar:** interviews in your time zone, deadlines by stage | **Analytics:** rates with written definitions and a table view |
+| ![Application details with contact, notes, record, and activity timeline](docs/screenshots/details.png) | ![Add application dialog](docs/screenshots/add-application.png) |
+| **Details:** everything about one application, with its history | **Add application:** validated form in an accessible dialog |
+
+<p>
+  <img src="docs/screenshots/mobile-applications.png" alt="Applications as a list on a phone" width="260">
+  &nbsp;
+  <img src="docs/screenshots/mobile-navigation.png" alt="Navigation drawer on a phone" width="260">
+</p>
+
+The screenshots show CareerFlow's fictional sample data (the same as `npm run seed`). They're captured from the running app by `npm run screenshots` in `e2e/`.
 
 ## Tech stack
 
 | Layer | Technology |
 | --- | --- |
-| Frontend | React 19, Vite 8, React Router 7, Tailwind CSS 4, lucide-react |
-| Testing | Vitest 4, Testing Library, jsdom |
-| End-to-end | Playwright (installed Edge/Chrome), axe-core (WCAG 2.1 A/AA) |
-| Backend | Node.js, Express 5, MongoDB, Mongoose 9, zod (validation), cors |
-| Security | bcrypt (`bcryptjs`), JWT (`jose`) in HttpOnly cookies, Helmet, `express-rate-limit`, CSRF protection |
-| Backend testing | Vitest, supertest, mongodb-memory-server |
+| Frontend | React 19, Vite 8, React Router 7, TanStack Query 5, Tailwind CSS 4, Recharts, lucide-react |
+| Backend | Node.js, Express 5, MongoDB with Mongoose 9, zod (validation) |
+| Security | bcrypt (`bcryptjs`), JWT (`jose`) in HttpOnly cookies, Helmet, CORS, CSRF checks, `express-rate-limit` |
+| Testing | Vitest and Testing Library (UI), Vitest, supertest, and mongodb-memory-server (API), Playwright and axe-core (browser end-to-end and accessibility) |
+| Delivery | GitHub Actions (CI), Render Blueprint (`render.yaml`), MongoDB Atlas |
 
-## Getting started
+## How it fits together
 
-**Requirements:** Node.js `^20.19.0` or `>=22.12.0`, npm 10+. Node 22 or 24 LTS is recommended; Node 20 is past end-of-life.
-
-**Backend** (needs MongoDB: a local install, Docker, or Atlas). Start it first:
-
-```bash
-cd server
-npm install
-cp .env.example .env   # then set JWT_SECRET (and MONGODB_URI if needed)
-npm run dev            # http://localhost:4000/api/health
+```mermaid
+flowchart LR
+  browser["Browser: React app"]
+  subgraph server["Node.js server (Express)"]
+    static["Built frontend: client/dist"]
+    api["REST API under /api"]
+  end
+  db[("MongoDB")]
+  browser -- "pages and assets" --> static
+  browser -- "JSON + session cookie" --> api
+  api --> db
 ```
 
-**Frontend:**
+- **Production:** one Node.js server serves the built frontend and the API from the same origin. There's no CORS to configure, and the session cookie stays first-party.
+- **Development:** Vite serves the frontend with hot reload on port 5173 and forwards `/api` to the API on port 4000.
 
-```bash
-cd client
-npm install
-npm run dev        # http://localhost:5173
-```
-
-Vite forwards `/api` to `http://localhost:4000`, so no CORS setup is needed locally. Create an account on the sign-up page. To fill it with the sample applications, run this in `server/`:
-
-```bash
-npm run seed -- --email you@example.com
-```
-
-**Frontend only (no server):** use the in-memory sample data, with no sign-in. It only works in development:
-
-```bash
-echo VITE_DATA_SOURCE=mock > client/.env.local
-```
-
-Running MongoDB locally with Docker: `docker run -d --name careerflow-mongo -p 27017:27017 mongo:8`.
-
-| Command (in `client/`) | What it does |
-| --- | --- |
-| `npm run dev` | Start the Vite dev server |
-| `npm run build` | Production build to `client/dist` |
-| `npm run preview` | Serve the production build locally |
-| `npm run lint` | ESLint (including React Hooks rules) |
-| `npm test` | Run unit and integration tests once |
-| `npm run test:watch` | Run tests in watch mode |
-
-| Command (in `server/`) | What it does |
-| --- | --- |
-| `npm run dev` | Start the API with auto-restart (`node --watch`) |
-| `npm start` | Start the API |
-| `npm run seed -- --email <you>` | Development only: add the 12 sample applications to an existing account. It refuses if the account already has data (add `--reset` to replace it), never creates accounts or touches other users, and refuses to run in production. |
-| `npm run lint` | ESLint |
-| `npm test` | API tests against a throwaway MongoDB (see below) |
-
-**Backend tests** start a temporary MongoDB server for each run, with its own port and data directory, and delete it afterwards, so tests never touch real data. The first run downloads a MongoDB binary (about 100 MB, cached). To reuse an installed MongoDB instead, point `MONGOMS_SYSTEM_BINARY` at its `mongod` executable:
-
-```bash
-MONGOMS_SYSTEM_BINARY="C:/Program Files/MongoDB/Server/8.2/bin/mongod.exe" npm test
-```
-
-**End-to-end tests** (`e2e/`) drive a real browser through the production build of the frontend and the real API. They need a running MongoDB, and they use their own database (`careerflow_e2e`, emptied before and after each run; the setup refuses any database whose name doesn't end in `_e2e`) and their own ports (API 4100, web 5174), so they never touch development data. The API, the build, and the preview server are started and stopped for you.
-
-```bash
-cd e2e
-npm install
-npx playwright test
-```
-
-| Option | Default | Purpose |
-| --- | --- | --- |
-| `E2E_MONGODB_URI` | `mongodb://127.0.0.1:27017/careerflow_e2e` | Database for the run (name must end in `_e2e`) |
-| `E2E_BROWSER_CHANNEL` | `msedge` on Windows | Use an installed browser (`msedge` or `chrome`). On macOS/Linux, either set this or run `npx playwright install chromium` once. |
-
-`npm run test:headed` shows the browser, and `npm run report` opens the HTML report (with traces for any failures).
-
-## Project structure
-
-```
-client/
-  src/
-    components/
-      ui/            Design system: Button, Badge, Card, Field inputs, Modal, ConfirmDialog, DropdownMenu,
-                     Pagination, Alert, Toaster, Skeleton, EmptyState
-      layout/        Sidebar, mobile drawer, top bar, profile menu
-      auth/          Route guards (RequireAuth, GuestOnly)
-      applications/  Table, filters, form, status select, row actions menu
-      dashboard/     Stat cards, status breakdown, upcoming events
-      pipeline/      Kanban columns and draggable cards
-      calendar/      Month grid, event rows
-      analytics/     Over-time chart (Recharts), source breakdown
-    layouts/         AppLayout (signed-in shell), AuthLayout (sign-in pages)
-    pages/           Sign in, Create account, Dashboard, Applications, Application details, Account, Not found (+ tests)
-    context/         AuthProvider (session, cache reset), ApplicationActionsProvider (dialogs), ToastProvider
-    hooks/           useApplicationData (TanStack Query), useAuth, useApplicationActions, useApplicationQuery,
-                     useDebouncedInput, useToast, useDialog, usePersistentState, usePageTitle
-    services/        applicationService.js (API or sample data), apiClient.js, authService.js
-    data/            sampleApplications.js: DEVELOPMENT-ONLY sample data
-    constants/       Statuses, employment types, sources (mirror the future DB enums)
-    utils/           Validation, query (search/filter/sort/paginate), stats, dates, model helpers (+ tests)
-    test/            Test setup and render helpers
-server/
-  src/
-    server.js        Entry point: validate config → connect DB → listen → graceful shutdown
-    app.js           createApp(): middleware, routes, error handling (no DB/port, so tests can use it)
-    config/          env.js (validated with zod, fails fast), database.js
-    models/          User, Application (owner reference, indexes), Activity (timeline), SavedView
-    validators/      zod schemas for request bodies, query strings and route params
-    middleware/      requireAuth, CSRF, rate limits, validate, request logger, 404 + central error handler
-    controllers/     HTTP ⇄ service translation
-    services/        Business rules and owner-scoped database access
-    routes/          /api/applications router
-    constants/ utils/
-  test/              API tests (supertest) + throwaway MongoDB setup
-e2e/
-  playwright.config.js  Starts the API and a production build on their own ports and database
-  global-setup.js       Empties the *_e2e database before a run (global-teardown.js: after it)
-  tests/                Browser journeys, isolation, keyboard, accessibility (axe), mobile, failure handling
-```
-
-### Data flow
+### Frontend data flow
 
 ```
 Pages → hooks/useApplicationData.js (TanStack Query: cache, loading/error states, invalidation)
@@ -181,7 +103,6 @@ The sample-data service mirrors the API exactly (filtering via `utils/applicatio
 - **Dates:**
   - Calendar dates (applied date, deadline) are stored as `YYYY-MM-DD` strings and read in local time, which avoids off-by-one-day timezone bugs.
   - Interview times are entered in the user's local time zone, stored as UTC ISO 8601 instants, and displayed with the time-zone name.
-- **The application model** already uses the final field names (`company`, `jobTitle`, `appliedDate`, `status`, `contact`, timestamps, …) so the Mongoose model in Level 4 matches.
 - **Modals and the mobile drawer** use the native `<dialog>` element for focus trapping, Escape handling, and inert backgrounds. Focus returns to the trigger on close.
 - **Menus** render in a portal with fixed positioning, so scrolling tables can't clip them. They follow the WAI-ARIA menu-button pattern: arrow keys, Home/End, Escape, and focus return.
 - **Text filters** update the URL after a 300 ms pause, so typing stays responsive and the browser history isn't flooded.
@@ -195,24 +116,132 @@ The sample-data service mirrors the API exactly (filtering via `utils/applicatio
 - **Retries:** queries retry only transient failures (network errors, timeouts, 5xx), at most twice. Writes are never retried automatically, to avoid duplicates. Submit buttons lock while saving.
 - **Ownership:** every database query includes the authenticated owner's `userId`, taken from the verified session and never from the request. Records belonging to other users return 404, the same as missing ones, so their existence isn't revealed.
 
-## MongoDB Atlas setup
+## Run it locally
 
-The API works with any MongoDB 7+ server. For a hosted database, use MongoDB Atlas (the free M0 tier is enough):
+**Requirements:** Node.js `^20.19.0` or `>=22.12.0` (Node 22 LTS recommended; `.node-version` pins 22 for hosting), npm 10+, and MongoDB 7+ (a local install, Docker, or Atlas).
 
-1. **Create a cluster:** create an Atlas project and a free M0 cluster, in a region close to where the API will run.
-2. **Create a database user:** under *Database Access*, add a user with a generated strong password. Prefer *Specific privileges → `readWrite` on database `careerflow`* over "read and write to any database".
-3. **Allow network access:** under *Network Access*, add your current IP address for local development. For a deployed API, add your host's outbound IP addresses. Use `0.0.0.0/0` only if the host has no fixed IPs, and then rely on a strong password and TLS, which Atlas always uses.
-4. **Copy the connection string:** *Connect → Drivers* gives a `mongodb+srv://…` string.
-   - **Add the database name** before the `?`: `…mongodb.net/careerflow?retryWrites=true&w=majority`. Without it, the data goes to a database called `test`, and the server logs a warning.
+```bash
+npm run install:all                      # installs server, client, and e2e dependencies
+cp server/.env.example server/.env       # then set JWT_SECRET (and MONGODB_URI if needed)
+npm run dev:server                       # API on http://localhost:4000
+npm run dev:client                       # in a second terminal: app on http://localhost:5173
+```
+
+Generate a `JWT_SECRET` with `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`. To run MongoDB with Docker: `docker run -d --name careerflow-mongo -p 27017:27017 mongo:8`.
+
+Create an account on the sign-up page. To fill it with the sample applications, run this in `server/`: `npm run seed -- --email you@example.com`. The seed script is for development only: it refuses to run in production, never creates accounts, and won't touch an account that already has data unless you add `--reset`.
+
+**Frontend only (no server):** create `client/.env.local` containing `VITE_DATA_SOURCE=mock` to switch the development build to in-memory sample data with no sign-in. Production builds ignore this setting and always use the API.
+
+| Command (repo root) | What it does |
+| --- | --- |
+| `npm run install:all` | Install dependencies for `server/`, `client/`, and `e2e/` |
+| `npm run dev:server` / `npm run dev:client` | Start the API (restarts on changes) / the Vite dev server |
+| `npm run lint` | ESLint for server and client |
+| `npm test` | API tests, then UI tests |
+| `npm run test:e2e` | Browser end-to-end tests (see [Testing](#testing)) |
+| `npm run build` | Build the frontend into `client/dist` |
+| `npm run build:deploy` | What hosting runs: clean installs, the frontend build, and server production dependencies only |
+| `npm start` | Start the server; with `NODE_ENV=production` it also serves `client/dist` |
+
+## Configuration
+
+### Server (`server/.env` locally; the host's environment settings in production)
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `NODE_ENV` | no | `development` | `development` or `production` (tests use `test`) |
+| `PORT` | no | `4000` | HTTP port. Hosting platforms usually set it. |
+| `MONGODB_URI` | yes | — | MongoDB connection string. A secret: never committed, never logged (credentials are masked). |
+| `JWT_SECRET` | yes | — | Signs session tokens. A secret: at least 32 random characters, unique per environment. |
+| `CLIENT_ORIGIN` | no | `http://localhost:5173` in development; none in production | Comma-separated origins of a frontend hosted *elsewhere*, for CORS (e.g. `https://app.example.com`). The server's own origin is always allowed. Entries must be bare origins (no path); a trailing slash is ignored. |
+| `SERVE_CLIENT` | no | `true` in production | Serve the built frontend from this server. Set `false` when the frontend is hosted separately. |
+| `CLIENT_DIST_DIR` | no | `client/dist` | Where the built frontend is |
+| `TRUST_PROXY` | no | `0` | Number of proxies in front of the server (`1` on Render and most platforms), for correct client IPs and HTTPS detection |
+| `SESSION_DAYS` | no | `7` | How long a sign-in lasts |
+| `COOKIE_SECURE` | no | `true` in production | Send the session cookie over HTTPS only |
+| `COOKIE_SAMESITE` | no | `lax` | `lax`, `strict`, or `none` (`none` requires `COOKIE_SECURE=true`) |
+| `BCRYPT_ROUNDS` | no | `12` | bcrypt cost (at least 10 in production; tests use 4) |
+| `LOGIN_RATE_LIMIT` | no | `10` | Failed sign-ins allowed per IP per 15 minutes. Keep the default in production. |
+| `SIGNUP_RATE_LIMIT` | no | `10` | Sign-ups allowed per IP per hour |
+
+The server validates its configuration at startup and refuses to start with a missing or invalid setting. The error names the variable but never prints its value.
+
+### Frontend (build time, `client/.env.local`)
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `VITE_API_BASE_URL` | `/api` | Only for a frontend hosted on a different domain from the API, e.g. `https://api.example.com/api` |
+| `VITE_DATA_SOURCE` | `api` | `mock` for in-memory sample data in development; ignored in production builds |
+
+`VITE_*` values are compiled into the public JavaScript bundle, so they must never contain secrets.
+
+## Deployment
+
+The recommended setup is **one web service on Render plus a free MongoDB Atlas cluster**. `render.yaml` describes the service, so most of the setup is automatic.
+
+### 1. Create the database (MongoDB Atlas)
+
+1. **Create a cluster:** create an Atlas project and a free M0 cluster. Pick the region closest to your Render region: `render.yaml` uses Singapore, so choose an Asian AWS region such as Singapore or Mumbai.
+2. **Create a database user:** under *Database Access*, add a user with a generated password and *Specific privileges → `readWrite` on database `careerflow`*.
+3. **Allow network access:** under *Network Access*, add Render's outbound IP ranges for your region. They're shown in the service's *Connect → Outbound* tab once it exists, and are shared by every service in that region. If you can't use them, allow `0.0.0.0/0`; the generated password and TLS, which Atlas always uses, then protect the database.
+4. **Copy the connection string:** *Connect → Drivers* gives `mongodb+srv://…`.
+   - **Add the database name** before the `?`: `…mongodb.net/careerflow?retryWrites=true&w=majority`. Without it, data goes to a database called `test`, and the server logs a warning.
    - **URL-encode** special characters in the password (`@` → `%40`, `:` → `%3A`, `/` → `%2F`).
-5. **Configure the API:** put the string in `server/.env` as `MONGODB_URI`. `.env` is git-ignored; never commit it or paste it into chats or issues. In production, use your host's secret settings instead of a file (Level 9).
-6. **Check it:** run `npm run dev`. The log should show `MongoDB connected {"database":"careerflow",…}` (the URI itself is never logged), and `GET /api/health` should report `"database":"connected"`. Optionally run `npm run seed`.
 
 | Problem | Likely cause |
 | --- | --- |
-| `Server selection timed out` | Your IP isn't on the Atlas network access list |
+| `Server selection timed out` | The server's IP isn't on the Atlas network access list |
 | `bad auth : authentication failed` | Wrong user or password, or special characters not URL-encoded |
 | Warning about the `test` database | Database name missing from the URI |
+
+### 2. Deploy the app (Render)
+
+1. Push this repository to GitHub.
+2. In the Render Dashboard choose **New → Blueprint** and select the repository. Render reads `render.yaml` and creates one web service:
+   - **Build:** `npm run build:deploy` (frontend build plus server production dependencies). **Start:** `npm start`.
+   - **Health check:** `/api/health`. A deploy only receives traffic once the server is running *and* connected to MongoDB.
+   - **Environment:** `NODE_ENV=production`, `TRUST_PROXY=1`. Render generates `JWT_SECRET` (256 random bits) and asks you for `MONGODB_URI` once; paste the Atlas connection string.
+3. When the deploy finishes, open the URL Render shows (`https://<service-name>.onrender.com`) and create your account.
+
+New pushes to `main` redeploy automatically. A custom domain needs no app changes: add it in the service's settings, and because pages and API share the origin there's nothing else to configure.
+
+**Free plan:** the service sleeps after 15 minutes without traffic, and the next visit takes about a minute to wake it. Free services also get 750 instance hours a month. Data is safe either way, because it lives in Atlas.
+
+### Check a deployment
+
+```bash
+curl https://<your-app>.onrender.com/api/health
+```
+
+It should answer `200` with `"status":"ok","database":"connected"`. Then sign up, add an application, and reload: it should still be there. In the browser's developer tools, the response headers include `Strict-Transport-Security` and `Content-Security-Policy`, and the `cf_session` cookie is `HttpOnly`, `Secure`, and `SameSite=Lax`.
+
+### Other hosts
+
+Any Node.js host works the same way: run `npm run build:deploy` to build, `npm start` to run, set `NODE_ENV=production`, `MONGODB_URI`, `JWT_SECRET`, and (behind the platform's proxy) `TRUST_PROXY=1`, and point the health check at `/api/health`. Use Node 22 LTS.
+
+### Frontend on a separate domain (optional)
+
+If the frontend must live elsewhere (a CDN or static host), build it with `VITE_API_BASE_URL=https://api.example.com/api`, and set `CLIENT_ORIGIN=https://app.example.com` and `SERVE_CLIENT=false` on the API.
+
+- **Same site (recommended):** `app.example.com` and `api.example.com` share a site, so the default `SameSite=Lax` cookie keeps working and only CORS (`CLIENT_ORIGIN`) is needed.
+- **Different sites** (e.g. `*.vercel.app` and `*.onrender.com`): this needs `COOKIE_SAMESITE=none` and `COOKIE_SECURE=true`, which turns the session into a third-party cookie. Safari and other browsers with tracking protection block third-party cookies, so users there couldn't stay signed in. Prefer a single service, a shared parent domain, or a host rewrite that proxies `/api` so the browser sees one origin.
+
+### Secrets
+
+| Secret | Production | Local | Rotating it |
+| --- | --- | --- | --- |
+| `MONGODB_URI` (database password) | Render environment variable, entered once in the dashboard | `server/.env` | Create a new password or user in Atlas, update the variable, let Render redeploy, then remove the old one |
+| `JWT_SECRET` | Generated by Render | `server/.env` (generate your own) | Change the value and redeploy. Every session ends, so everyone signs in again. |
+
+- **Never committed:** `.env` files are git-ignored, and only the value-free `.env.example` is tracked. The git history was scanned for credentials in Level 9 and contains none.
+- **Never in the frontend:** `VITE_*` values are public, so the frontend bundle holds no secrets.
+- **Never echoed:** configuration errors name the variable, never its value; connection strings are masked in logs; passwords and tokens are never logged.
+- **Tests use throwaway secrets:** the API tests use a test-only secret, and each end-to-end run generates a random one.
+
+### Health check
+
+`GET /api/health` is public and returns `200 {"data":{"status":"ok","database":"connected",…}}` while MongoDB is connected, or `503` with `"status":"degraded"` while it isn't. Hosting platforms use it to decide when a deploy can take traffic, and it works with any uptime monitor. While the database is down, other API requests fail fast with `503 DATABASE_UNAVAILABLE` and the app offers **Try again**; the driver reconnects automatically when the database comes back.
 
 ## Authentication and security
 
@@ -223,10 +252,11 @@ The API works with any MongoDB 7+ server. For a hosted database, use MongoDB Atl
 | Every request | `requireAuth` verifies the token and reloads the user, so deleted accounts are refused immediately. A `tokenVersion` mismatch means the session was revoked: changing the password signs out every other session. |
 | CSRF | Three layers: the SameSite cookie; a required `X-CSRF-Protection: 1` header on every non-GET request (browsers only let allowed origins send it, after a CORS preflight); and a check that any `Origin` header is an allowed origin. |
 | Brute force | Sign-in and password checks: 10 failed attempts per 15 minutes per IP (successful sign-ins don't count). Sign-up: 10 per hour per IP. Sign-in returns the same message, after the same amount of work, for unknown emails and wrong passwords. |
-| Headers | Helmet: CSP, HSTS, `nosniff`, frame and referrer policies, and `Cross-Origin-Resource-Policy: same-site`. |
+| Headers | Helmet on every response, including the pages and assets the server hosts in production: a Content Security Policy (`script-src 'self'`, no inline scripts), HSTS, `nosniff`, frame and referrer policies, and `Cross-Origin-Resource-Policy: same-site`. |
+| CORS | In production only the server's own origin is allowed unless `CLIENT_ORIGIN` lists a separately hosted frontend. Origins are validated at startup and matched exactly, so look-alike domains get nothing. |
 | Frontend | Protected routes redirect to `/login?next=…`; only same-app paths are accepted as `next`. Data providers live inside the signed-in layout, so signing out drops the previous user's data from memory. An expired or revoked session sends the user back to sign in. |
 
-**Deployment note:** cookies work best when the frontend and API share a site, for example `app.example.com` and `api.example.com`, with `COOKIE_SAMESITE=lax`. If they must be on different sites, set `COOKIE_SAMESITE=none` and `COOKIE_SECURE=true`; the CSRF header and Origin checks still protect writes. Rate limits use in-memory storage, which is correct for one server instance. Behind a proxy, set `TRUST_PROXY`.
+Rate limits are stored in memory, which is correct for a single server instance (Render's free plan runs one).
 
 ## API reference
 
@@ -270,22 +300,75 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
 
 **Data formats:** `appliedDate` and `deadline` are `YYYY-MM-DD` calendar dates. `interviewDate`, `createdAt`, and `updatedAt` are ISO 8601 instants in UTC. Empty optional fields are `""`.
 
-### Environment variables (`server/.env`)
+## Testing
 
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `NODE_ENV` | no | `development` | `development` or `production` (tests use `test`) |
-| `PORT` | no | `4000` | HTTP port |
-| `MONGODB_URI` | yes | — | MongoDB connection string. Never committed, and never logged (credentials are masked). |
-| `CLIENT_ORIGIN` | no | `http://localhost:5173` | Comma-separated browser origins allowed by CORS |
-| `JWT_SECRET` | yes | — | Signs session tokens; at least 32 random characters, unique per environment. Generate one with `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` |
-| `SESSION_DAYS` | no | `7` | How long a sign-in lasts |
-| `COOKIE_SECURE` | no | `true` in production | Send the cookie over HTTPS only |
-| `COOKIE_SAMESITE` | no | `lax` | `lax`, `strict`, or `none` (`none` requires `COOKIE_SECURE=true`) |
-| `TRUST_PROXY` | no | `0` | Number of proxies in front of the API (usually `1` on hosting platforms) |
-| `BCRYPT_ROUNDS` | no | `12` | bcrypt cost (at least 10 in production; tests use 4) |
-| `LOGIN_RATE_LIMIT` | no | `10` | Failed sign-ins allowed per IP per 15 minutes. Keep the default in production; the E2E suite raises it because every test signs up from one IP. |
-| `SIGNUP_RATE_LIMIT` | no | `10` | Sign-ups allowed per IP per hour |
+| Suite | Command | What it covers |
+| --- | --- | --- |
+| API | `npm test` in `server/` | Every endpoint, validation, sessions and CSRF, rate limits, cross-user isolation on every route, database outages (503), analytics against brute-force counts, production configuration, and serving the frontend build. Runs against a throwaway MongoDB. |
+| UI | `npm test` in `client/` | Pages and components in jsdom: forms and validation, filters, optimistic updates and rollback, routing and sign-in flows, calendar and analytics helpers |
+| End-to-end | `npm test` in `e2e/` | Real browser against the real API and MongoDB: sign-up and sign-in, CRUD, search and filters, isolation between two users, export, analytics, keyboard-only use, axe-core accessibility scans, phone layouts, and API failure recovery |
+| End-to-end, production mode | `npm run build` (root), then `E2E_MODE=production npx playwright test` in `e2e/` | The same browser tests against exactly what's deployed: `NODE_ENV=production`, one server, Secure cookies, production headers |
+
+**API tests** start a temporary MongoDB server per run (downloaded once, about 100 MB, and cached). To use an installed MongoDB binary instead, set `MONGOMS_SYSTEM_BINARY`, for example `MONGOMS_SYSTEM_BINARY="C:/Program Files/MongoDB/Server/8.2/bin/mongod.exe" npm test`.
+
+**End-to-end tests** need a running MongoDB. They use their own database (`careerflow_e2e`, emptied before and after each run; the setup refuses any database whose name doesn't end in `_e2e`) and their own ports (4100 and 5174), and they start and stop the servers themselves.
+
+| Option | Default | Purpose |
+| --- | --- | --- |
+| `E2E_MONGODB_URI` | `mongodb://127.0.0.1:27017/careerflow_e2e` | Database for the run (the name must end in `_e2e`) |
+| `E2E_BROWSER_CHANNEL` | `msedge` on Windows | Use an installed browser (`msedge` or `chrome`). On macOS and Linux, set this or run `npx playwright install chromium` once. |
+| `E2E_MODE` | — | `production` to test the production server (build the frontend first) |
+| `E2E_APP_DIR` | the repo root | Test another checkout, e.g. a clean copy built with `npm run build:deploy` |
+
+`npm run test:headed` shows the browser, `npm run report` opens the HTML report (with traces for failures), and `npm run screenshots` regenerates `docs/screenshots/`.
+
+**Continuous integration:** `.github/workflows/ci.yml` runs on every push to `main` and every pull request: lint and tests for the server and client, a production build, and both end-to-end modes against a MongoDB service container.
+
+## Project structure
+
+```
+package.json         Root scripts: install, dev, lint, test, build, build:deploy, start
+render.yaml          Render Blueprint (one web service)
+.node-version        Node.js version for hosting (22)
+.github/workflows/   CI
+docs/                Screenshots and the development log
+client/
+  src/
+    components/
+      ui/            Design system: Button, Badge, Card, Field inputs, Modal, ConfirmDialog, DropdownMenu,
+                     Pagination, Alert, Toaster, Skeleton, EmptyState
+      layout/        Sidebar, mobile drawer, top bar, profile menu
+      auth/          Route guards (RequireAuth, GuestOnly)
+      applications/  Table, filters, form, status select, row actions, saved views, activity timeline
+      dashboard/     Stat cards, status breakdown, upcoming events
+      pipeline/      Kanban columns and draggable cards
+      calendar/      Month grid, event rows
+      analytics/     Over-time chart (Recharts), source breakdown
+    layouts/         AppLayout (signed-in shell), AuthLayout (sign-in pages)
+    pages/           One component per route (+ page tests)
+    context/         AuthProvider (session, cache reset), ApplicationActionsProvider (dialogs), ToastProvider
+    hooks/           useApplicationData (TanStack Query), useAuth, useApplicationActions, useDialog, …
+    services/        apiClient.js (the only HTTP code), API and sample-data services, auth
+    data/            Development-only sample data
+    constants/ utils/
+server/
+  src/
+    server.js        Entry point: validate config → connect DB → listen → graceful shutdown
+    app.js           createApp(): middleware, routes, error handling (no DB/port, so tests can use it)
+    config/          env.js (validated with zod, fails fast), database.js
+    models/          User, Application, Activity, SavedView
+    validators/      zod schemas for bodies, query strings, and route params
+    middleware/      requireAuth, CSRF, rate limits, validation, request logger, frontend serving, errors
+    controllers/     HTTP ⇄ service translation
+    services/        Business rules and owner-scoped database access
+    routes/          /api/auth, /api/users, /api/applications, /api/views
+  scripts/           Development-only seed script
+  test/              API tests (supertest) + throwaway MongoDB setup
+e2e/
+  playwright.config.js  Starts the servers (development or production mode) on their own ports and database
+  tests/                Browser journeys, isolation, keyboard, accessibility (axe), mobile, failure handling
+  screenshots/          Captures docs/screenshots
+```
 
 ## Design system
 
@@ -294,135 +377,21 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
 - **Shape:** `rounded-lg` for controls, `rounded-xl` for cards and dialogs, 1px slate-200 borders, `shadow-xs` on surfaces.
 - **States:** loading skeletons, empty states, inline field errors with an error summary, toasts for success and failure, and visible `:focus-visible` rings.
 
-## Implementation checklist
-
-| Level | Scope | Status |
-| --- | --- | --- |
-| 1 | Frontend foundation: layout, dashboard, Add Application form | ✅ Implemented and verified |
-| 2 | Application management: view, edit, delete, search, filter, sort | ✅ Implemented and verified |
-| 3 | Express backend foundation and API | ✅ Implemented and verified |
-| 4 | MongoDB Atlas integration | ✅ Implemented and verified (local MongoDB 8.2; Atlas guide above) |
-| 5 | Authentication and security | ✅ Implemented and verified |
-| 6 | Connect frontend to API | ✅ Implemented and verified |
-| 7 | Kanban, analytics, calendar, activity, CSV export, saved views | ✅ Implemented and verified |
-| 8 | Testing, accessibility, and polish | ✅ Implemented and verified |
-| 9 | Deployment and documentation | ⬜ Not started |
-
-**Latest verification (Level 2):** `npm run lint` (0 problems), `npm test` (75 passing: unit tests for validation, query, model, service, and dates, plus integration tests for every CRUD, status, search, filter, sort, and pagination flow), and `npm run build` all succeed. These were also checked in a browser at desktop and phone widths: menus near the bottom of the table, edit pre-fill, interview time-zone round trip, delete confirmation and redirect, and the mobile filter panel.
-
-**Level 3 verification:** `npm run lint` (0 problems) and `npm test` (43 passing: CRUD, validation, ownership isolation, list query, stats, CORS, error handling, config) in `server/`. These were also checked against a real local MongoDB 8.2 with curl:
-- every endpoint, including invalid and missing IDs
-- data persisting across a server restart
-- request logs containing no query strings
-- production mode answering 401 on private routes
-- startup refusing a `DEV_USER_ID` in production (that placeholder was replaced by real authentication in Level 5)
-
-**Level 4 verification:**
-- **Server:** `npm test` (53 passing, including index-usage checks via `explain()` and the seed safety rules).
-- **Client:** `npm test` (85 passing, including HTTP error mapping).
-- **End-to-end** with the frontend in API mode against local MongoDB 8.2:
-  - The dashboard loads the seeded records.
-  - A record added in the UI survives an API restart and a page reload, and can be deleted in the UI.
-  - With the API stopped, the UI shows "server unavailable", and **Try again** recovers once it's back.
-
-**Level 5 verification:**
-- **Server:** `npm test` (82 passing: registration, login, sessions, tampered/expired/foreign-secret/revoked tokens, logout, CSRF, rate limits, profile and password changes, Helmet headers, and two-user isolation for every application route).
-- **Client:** `npm test` (112 passing: protected routes, sign-in/sign-up validation and errors, open-redirect protection, sign-out, expired sessions, API client CSRF/401 handling).
-- **End-to-end** against a real API and local MongoDB in the browser:
-  - Signing up returns you to the page you asked for.
-  - The session cookie is invisible to JavaScript.
-  - The session survives a reload.
-  - Signing out ends the server session.
-  - A second account sees none of the first account's data; its URLs give "not found" in the UI and 404 from the API.
-  - A wrong password is refused.
-  - A revoked session sends the user back to sign in, and the refused write is not saved.
-  - Failed sign-ins hit 429 with `Retry-After`.
-  - The API log contains no emails, passwords, or tokens.
-
-**Level 6 verification:**
-- **Client:** `npm test` (125 passing, including the new tests below). Production builds were checked to contain no sample data, both by default and with `VITE_DATA_SOURCE=mock` set.
-  - Account settings.
-  - Cache isolation between users.
-  - Optimistic status changes and rollback.
-  - Recovery when a page empties after deletes.
-  - Never showing an overall total smaller than the filtered results.
-  - Server-side list, stats, and detail requests.
-- **Server:** `npm test` (82 passing; no server changes in this level).
-- **End-to-end** in the browser against the real API and local MongoDB:
-  - A new user signed up and saw an empty dashboard.
-  - They added an application, edited it, changed its status, and deleted it (with confirmation). The dashboard numbers followed each step, and the API confirmed each change.
-  - The data persisted across a reload and across signing out and back in.
-  - Search, filters, and paging went to the server as query parameters.
-  - A second user saw none of the first user's data.
-  - Account settings updated the name, and the password change kept this session signed in while invalidating the old password.
-  - No horizontal scrolling at phone width.
-  - This run found a stale total ("5 of 0 applications"), which is now fixed and covered by a test.
-
-**Level 7 verification:**
-- **Server:** `npm test` (100 passing; 18 new):
-  - Activity: recorded names only, private to the owner, deleted with the application, none invented.
-  - CSV: escaping, formula neutralization, filters, ownership.
-  - Analytics: definitions, week/month/year buckets, range validation, ownership.
-  - Events: local-day boundaries across time zones, validation, ownership.
-  - Saved views: normalization, duplicate names, the 20-view limit, privacy.
-- **Client:** `npm test` (143 passing; 18 new):
-  - Kanban moves via the status menu and via drag-and-drop.
-  - Calendar agenda labels and keyboard navigation.
-  - Exact analytics numbers for two ranges, plus the table view.
-  - Activity timeline, CSV download contents, saving and re-applying a view, the dashboard's upcoming card.
-  - Calendar and analytics helpers.
-- **End-to-end** in the browser against the real API and local MongoDB:
-  - A real `DragEvent` drag moved a card; the column highlighted and the server confirmed the change.
-  - The timeline showed only the recorded change.
-  - Calendar events landed on the correct local days in GMT+5:30, with stage labels.
-  - Analytics numbers matched the data, and the chart chunk loaded only on that page.
-  - The CSV export had the right headers, rows, and byte-order mark.
-  - A saved view persisted in normalized form.
-  - No horizontal overflow on any page at phone width. This run caught screen-reader-only text widening the page from inside the Kanban scroller, which is now fixed.
-
-**Level 8 verification:** every command below was run and passed on the final code.
-- **Server:** `npm run lint` (0 problems), `npm test` (107 passing; 7 new): a real database disconnect answers 503 within 8 seconds and recovers, driver errors map to 503 with `Retry-After`, configurable rate limits, and analytics checked against brute-force counts on 4 seeded random datasets of 300 records.
-- **Client:** `npm run lint` (0 problems), `npm test` (144 passing), `npm run build` (main bundle 145 KB gzipped; the chart code loads only on Analytics).
-- **End-to-end:** `npx playwright test` (36 passing: 32 desktop, 4 on a Pixel 7 profile, in Edge). The suite also passed 3 times in a row (`--repeat-each=3`, 96 of 96) to check for flaky tests.
-
-| Requirement | Where it's tested |
-| --- | --- |
-| Registration and login | E2E `auth`: sign-up, session survives reload, return to the requested page. Server `auth`. Client `Auth`. |
-| Invalid credentials | E2E: wrong password and unknown email give the same message. Server: same 401 response for both. |
-| Protected routes | E2E: redirect with `next`; every private API route answers 401 `AUTH_REQUIRED`; writes without the CSRF header or from a foreign origin answer 403. |
-| CRUD, persistence | E2E `applications`: add (with validation), edit, status change, details, delete with confirmation, all checked after reload. |
-| Search and filter combinations | E2E: search + status + location narrowing step by step, a shareable URL restored on reload, a date range, and no-match. Server and client query tests. |
-| Status changes | E2E: from the table and from a pipeline card, recorded in the activity timeline; a failed save rolls back. |
-| Empty account | E2E: a new account's dashboard, list, and every page's empty state (also scanned by axe). |
-| Invalid input | E2E: field errors in the form; the API returns field-level `VALIDATION_ERROR`s and strips unknown fields such as `userId`. |
-| Missing or invalid IDs | E2E: malformed and unknown IDs show "Application not found"; API 400 `INVALID_ID` / 404. Unknown pages show a not-found page. |
-| API and database failures | Server: real disconnect → 503. E2E `resilience`: 503 on load shows the reason and **Try again** recovers; server unreachable at startup; expired session mid-task → sign in → back. |
-| Authorization and cross-user isolation | E2E `isolation`: a second user gets 404 for another user's application (read, activity, update, delete), saved views, and stats, and their export doesn't include it. The owner's data is unchanged. Server tests cover every route. |
-| Analytics accuracy | E2E: a hand-checked dataset gives exact rates for two ranges. Server: randomized brute-force comparison. Client: exact numbers and the table view. |
-| CSV export permissions | E2E: download contains only the filtered rows of the signed-in user, has a BOM, and neutralizes formulas; unauthenticated export is 401. |
-| Mobile and desktop layouts | E2E `mobile`: no page scrolls sideways at phone width (with very long names), the navigation drawer, the list layout, the add form fitting the screen, and 36px touch targets. Desktop: no sideways scrolling on any page. |
-| Keyboard navigation | E2E `keyboard`: skip link, sidebar by Tab/Enter, adding an application without a mouse, Escape returning focus, profile menu arrows/Home/End, delete confirmation focusing Cancel, calendar arrow keys. |
-| Accessible labels | E2E `accessibility`: axe-core WCAG 2.1 A/AA on every page (with data and empty), sign-in with errors, dialogs, menus, and the analytics table. Also checks one `h1` and one `main` per page, and a name on every visible control. |
-
-Issues the new tests found, now fixed:
-- **Low-contrast text.** The empty Kanban columns (4.42:1) and calendar days from other months (2.63:1) were below the 4.5:1 minimum.
-- **Pipeline board keyboard access.** The board scrolled sideways but couldn't be reached by keyboard when it had no cards. It's now a focusable, labelled region.
-- **Focusable hidden chart.** The analytics chart, which is hidden from screen readers, had a keyboard focus layer. That layer is now off, and the table view carries the data.
-- **Invalid details markup.** The details page had an invalid `<dl>` structure.
-- **Wrong count wording.** Kanban counts read "1 applications" to screen readers.
-- **Closed applications in "Upcoming".** The calendar's "Upcoming" list showed deadlines for rejected applications.
-
 ## Known limitations
 
-- Verified against a local MongoDB 8.2. Connecting to Atlas needs your own cluster and credentials (see *MongoDB Atlas setup*).
-- Password reset by email isn't included, because email integrations are out of scope. Account deletion isn't implemented yet.
-- Changes made on another device appear when a screen is reopened or the browser tab regains focus. There's no live push.
-- Search covers company and job title only; location has its own filter.
-- Activity history starts when this feature was added; older changes aren't shown. Activity writes are best-effort without database transactions.
-- Analytics rates use current status, not full history (see the definitions above).
-- Each Kanban column shows up to 100 applications, with a link to the full filtered list beyond that.
-- Not implemented (optional in the spec): dark mode, follow-up reminders, and AI resume matching (which needs a configured AI provider).
-- Sample-data mode (development only) has no sign-in: it uses a clearly labelled guest.
-- Automated accessibility checks (axe) find about half of real-world issues. Keyboard flows are tested, but no manual screen-reader pass (NVDA, VoiceOver) has been done yet.
-- The E2E suite needs a local MongoDB and an installed browser. It doesn't run in CI yet.
-- In the browser tests, API failures are simulated at the network layer; the real database-disconnect behaviour is covered by the server tests.
+- **Not deployed yet.** There's no public demo URL until someone deploys their own copy (see [Deployment](#deployment)).
+- **Free hosting is slow to wake.** On Render's free plan, the first visit after 15 idle minutes takes about a minute.
+- **One server instance.** Rate limits live in memory, which is correct for one instance. Running several would need a shared store such as Redis.
+- **Account recovery and deletion.** There's no password reset by email (email integrations are out of scope), and accounts can't be deleted yet.
+- **No live updates.** Changes made on another device appear when a screen is reopened or the tab regains focus.
+- **Search scope.** Search covers company and job title only; location has its own filter.
+- **Activity history.** It starts from when the feature was added, so older changes aren't shown, and it's written best-effort without database transactions.
+- **Analytics rates** use current status, not full history (see *Design decisions*).
+- **Kanban columns** each show up to 100 applications, with a link to the full filtered list beyond that.
+- **Accessibility testing.** Automated checks (axe) find about half of real-world issues. Keyboard flows are tested, but no manual screen-reader pass (NVDA, VoiceOver) has been done yet.
+- **Simulated failures.** The browser tests simulate API failures at the network layer; the real database-disconnect behaviour is covered by the API tests.
+- **Not implemented** (optional in the original spec): dark mode, follow-up reminders, and AI resume matching (which needs a configured AI provider).
+
+## Development history
+
+CareerFlow was built in nine levels, each implemented, tested, and reviewed before the next. [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) records the scope of each level and exactly how it was verified, including test counts and the bugs that testing caught.

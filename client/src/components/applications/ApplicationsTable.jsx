@@ -88,9 +88,10 @@ function SortableHeader({ field, label, sort, onSortChange, className }) {
 
 /**
  * Applications list: a table from the `md` breakpoint up, stacked cards below it.
- * Pass `sort` and `onSortChange` to make column headers sortable.
+ * Pass `sort` and `onSortChange` to make column headers sortable. `showLocation={false}`
+ * drops the location column where the table sits in a narrow column.
  */
-export function ApplicationsTable({ applications, caption, sort, onSortChange, showDeadline = false }) {
+export function ApplicationsTable({ applications, caption, sort, onSortChange, showDeadline = false, showLocation = true }) {
   const [today] = useState(() => todayISO());
   const headerProps = { sort, onSortChange };
 
@@ -105,9 +106,11 @@ export function ApplicationsTable({ applications, caption, sort, onSortChange, s
               <th scope="col" className="px-3 py-3 font-medium">
                 Job title
               </th>
-              <th scope="col" className="hidden px-3 py-3 font-medium lg:table-cell">
-                Location
-              </th>
+              {showLocation && (
+                <th scope="col" className="hidden px-3 py-3 font-medium lg:table-cell">
+                  Location
+                </th>
+              )}
               <SortableHeader field="appliedDate" label="Applied" className="whitespace-nowrap" {...headerProps} />
               {showDeadline && (
                 <SortableHeader field="deadline" label="Deadline" className="hidden xl:table-cell" {...headerProps} />
@@ -137,7 +140,9 @@ export function ApplicationsTable({ applications, caption, sort, onSortChange, s
                     </p>
                   )}
                 </td>
-                <td className="hidden px-3 py-3 text-slate-600 lg:table-cell">{application.location}</td>
+                {showLocation && (
+                  <td className="hidden px-3 py-3 text-slate-600 lg:table-cell">{application.location}</td>
+                )}
                 <td className="px-3 py-3 whitespace-nowrap text-slate-600">
                   <AppliedDate value={application.appliedDate} />
                 </td>

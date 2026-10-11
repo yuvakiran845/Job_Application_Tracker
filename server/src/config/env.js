@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
@@ -7,13 +8,36 @@ const booleanString = z.enum(['true', 'false']).transform((value) => value === '
 // Only used when NODE_ENV=test, so the test suite needs no secrets.
 const TEST_JWT_SECRET = 'test-only-secret-that-is-at-least-32-characters-long';
 
+// The frontend's production build, served by this server in single-service deployments.
+const DEFAULT_CLIENT_DIST_DIR = fileURLToPath(new URL('../../../client/dist', import.meta.url));
+
+/** "https://app.example.com/" → "https://app.example.com"; null if it isn't a bare http(s) origin. */
+function normalizeOrigin(value) {
+  try {
+    const url = new URL(value);
+    const bare = `${url.protocol}//${url.host}`;
+    const isBare = value.replace(/\/$/, '').toLowerCase() === bare && !url.username && !url.password;
+    return isBare && (url.protocol === 'https:' || url.protocol === 'http:') ? bare : null;
+  } catch {
+    return null;
+  }
+}
+
+function splitList(value) {
+  return (value ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().min(1).max(65535).default(4000),
     MONGODB_URI: z.string().trim().optional(),
-    // Comma-separated list of browser origins allowed to call the API.
-    CLIENT_ORIGIN: z.string().trim().default('http://localhost:5173'),
+    // Comma-separated list of other browser origins allowed to call the API (CORS). The
+    // API's own origin is always allowed. Defaults to the Vite dev server outside production.
+    CLIENT_ORIGIN: z.string().trim().optional(),
     // Signs session tokens. Generate with: node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
     JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters.').optional(),
     SESSION_DAYS: z.coerce.number().int().min(1).max(90).default(7),
@@ -28,6 +52,9 @@ const envSchema = z
     // Failed sign-ins per 15 minutes and sign-ups per hour, per client IP.
     LOGIN_RATE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(10),
     SIGNUP_RATE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(10),
+    // Serve the built frontend from this server. Defaults to on in production.
+    SERVE_CLIENT: booleanString.optional(),
+    CLIENT_DIST_DIR: z.string().trim().min(1).optional(),
   })
   .superRefine((env, ctx) => {
     const isTest = env.NODE_ENV === 'test';
@@ -44,6 +71,16 @@ const envSchema = z
         path: ['COOKIE_SAMESITE'],
         message: 'COOKIE_SAMESITE=none requires COOKIE_SECURE=true (browsers reject it otherwise).',
       });
+    }
+    for (const origin of splitList(env.CLIENT_ORIGIN)) {
+      if (!normalizeOrigin(origin)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['CLIENT_ORIGIN'],
+          message: 'Each entry must be an origin such as https://app.example.com (scheme and host, optional port, no path).',
+        });
+        break;
+      }
     }
     if (env.NODE_ENV === 'production' && (env.BCRYPT_ROUNDS ?? 12) < 10) {
       ctx.addIssue({ code: 'custom', path: ['BCRYPT_ROUNDS'], message: 'BCRYPT_ROUNDS must be at least 10 in production.' });
@@ -67,10 +104,13 @@ export function parseEnv(env) {
     isProduction,
     port: parsed.PORT,
     mongodbUri: parsed.MONGODB_URI,
-    corsOrigins: parsed.CLIENT_ORIGIN.split(',')
-      .map((origin) => origin.trim())
-      .filter(Boolean),
+    // Production allows only the API's own origin unless CLIENT_ORIGIN says otherwise.
+    corsOrigins: splitList(parsed.CLIENT_ORIGIN ?? (isProduction ? '' : 'http://localhost:5173')).map(normalizeOrigin),
     trustProxy: parsed.TRUST_PROXY,
+    client: Object.freeze({
+      serve: parsed.SERVE_CLIENT ?? isProduction,
+      distDir: path.resolve(parsed.CLIENT_DIST_DIR ?? DEFAULT_CLIENT_DIST_DIR),
+    }),
     auth: Object.freeze({
       jwtSecret: parsed.JWT_SECRET ?? (isTest ? TEST_JWT_SECRET : undefined),
       sessionDays: parsed.SESSION_DAYS,

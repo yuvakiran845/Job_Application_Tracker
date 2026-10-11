@@ -1,3 +1,4 @@
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
@@ -8,6 +9,7 @@ import { createCsrfProtection } from './middleware/csrf.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { createAuthRateLimiters } from './middleware/rateLimit.js';
 import { requestLogger } from './middleware/requestLogger.js';
+import { createClientHandler } from './middleware/serveClient.js';
 import { createApplicationRouter } from './routes/applicationRoutes.js';
 import { createAuthRouter, createUserRouter } from './routes/authRoutes.js';
 import { createViewRouter } from './routes/viewRoutes.js';
@@ -22,19 +24,24 @@ export function createApp({
     login: { limit: config.auth.loginRateLimit },
     signup: { limit: config.auth.signupRateLimit },
   },
+  client = config.client,
 } = {}) {
   const app = express();
   app.disable('x-powered-by');
   // Needed behind a hosting proxy so req.ip (rate limiting) and req.protocol are correct.
   app.set('trust proxy', config.trustProxy);
 
-  app.use(requestLogger);
   app.use(
     helmet({
       // Allow the frontend on a sibling subdomain (same site) to read responses.
       crossOriginResourcePolicy: { policy: 'same-site' },
     }),
   );
+  app.use(compression());
+  // The built frontend, when this server hosts it. Page and asset requests aren't logged.
+  if (client.serve) app.use(createClientHandler(client.distDir));
+
+  app.use(requestLogger);
   app.use(
     cors({
       // Only the configured frontend origins get CORS headers; browsers block the rest.
