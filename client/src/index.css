@@ -1,0 +1,82 @@
+@import 'tailwindcss';
+
+/*
+ * CareerFlow design tokens.
+ * Neutrals come from Tailwind's slate scale; `brand` is the single indigo accent.
+ * Status colours (amber, violet, emerald, rose) are used only inside badges and
+ * small indicators — see src/components/ui/tones.js.
+ */
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+
+  --animate-dialog-in: dialog-in 160ms ease-out;
+  --animate-drawer-in: drawer-in 200ms ease-out;
+  --animate-fade-in: fade-in 160ms ease-out;
+  --animate-toast-in: toast-in 200ms ease-out;
+
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+  }
+  @keyframes drawer-in {
+    from {
+      transform: translateX(-100%);
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-slate-50 font-sans text-slate-900;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+  }
+
+  /* Lock page scroll while a modal dialog or drawer is open. */
+  html:has(dialog[open]) {
+    overflow: hidden;
+  }
+
+  dialog::backdrop {
+    background-color: rgb(15 23 42 / 0.4);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    dialog[open]::backdrop {
+      animation: var(--animate-fade-in);
+    }
+  }
+}

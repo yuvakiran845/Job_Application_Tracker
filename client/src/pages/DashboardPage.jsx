@@ -1,0 +1,107 @@
+import { useMemo, useState } from 'react';
+import { useOutletContext } from 'react-router';
+import { ArrowRight, BriefcaseBusiness, CircleX, Inbox, MessagesSquare, Plus, Trophy } from 'lucide-react';
+import { ApplicationsTable, ApplicationsTableSkeleton } from '../components/applications/ApplicationsTable';
+import { LoadErrorAlert } from '../components/applications/LoadErrorAlert';
+import { StatCard, StatCardSkeleton } from '../components/dashboard/StatCard';
+import { StatusBreakdown } from '../components/dashboard/StatusBreakdown';
+import { Button, ButtonLink } from '../components/ui/Button';
+import { Card, CardHeader } from '../components/ui/Card';
+import { EmptyState } from '../components/ui/EmptyState';
+import { useApplications } from '../hooks/useApplications';
+import { formatLongDate, getGreeting } from '../utils/date';
+import { pluralize } from '../utils/format';
+import { getApplicationStats, sortByNewest } from '../utils/stats';
+
+const RECENT_LIMIT = 5;
+
+export default function DashboardPage() {
+  const { openAddApplication } = useOutletContext();
+  const { applications, status, reload } = useApplications();
+  const [now] = useState(() => new Date());
+
+  const stats = useMemo(() => getApplicationStats(applications, { now }), [applications, now]);
+  const recentApplications = useMemo(() => sortByNewest(applications).slice(0, RECENT_LIMIT), [applications]);
+  const loading = status === 'loading';
+
+  const statCards = [
+    {
+      label: 'Total applications',
+      value: stats.total,
+      footnote: `${pluralize(stats.appliedRecently, 'application')} sent in the last ${stats.windowDays} days`,
+      icon: BriefcaseBusiness,
+      tone: 'brand',
+    },
+    {
+      label: 'Interviews',
+      value: stats.interviews,
+      footnote: 'Currently at the interview stage',
+      icon: MessagesSquare,
+      tone: 'violet',
+    },
+    { label: 'Offers', value: stats.offers, footnote: 'Offers received', icon: Trophy, tone: 'success' },
+    {
+      label: 'Rejections',
+      value: stats.rejections,
+      footnote: 'Closed by the employer',
+      icon: CircleX,
+      tone: 'danger',
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-sm text-slate-500">{formatLongDate(now)}</p>
+        <h2 className="mt-0.5 text-xl font-semibold tracking-tight text-slate-900">{getGreeting(now)}</h2>
+        <p className="mt-1 text-sm text-slate-600">Here’s where your job search stands today.</p>
+      </div>
+
+      {status === 'error' ? (
+        <LoadErrorAlert onRetry={reload} />
+      ) : (
+        <>
+          <section aria-label="Key metrics" aria-busy={loading}>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+              {loading
+                ? statCards.map((card) => <StatCardSkeleton key={card.label} />)
+                : statCards.map((card) => <StatCard key={card.label} {...card} />)}
+            </div>
+          </section>
+
+          <StatusBreakdown byStatus={stats.byStatus} total={stats.total} loading={loading} />
+
+          <Card aria-labelledby="recent-applications-title">
+            <CardHeader
+              titleId="recent-applications-title"
+              title="Recently added"
+              description="Your newest applications, most recent first."
+              action={
+                <ButtonLink to="/applications" variant="ghost" size="sm" className="-mr-2">
+                  View all
+                  <ArrowRight className="size-4" aria-hidden="true" />
+                </ButtonLink>
+              }
+            />
+            {loading ? (
+              <ApplicationsTableSkeleton rows={RECENT_LIMIT} />
+            ) : recentApplications.length === 0 ? (
+              <EmptyState
+                icon={Inbox}
+                title="No applications yet"
+                description="Add the first role you’ve applied to and CareerFlow will start tracking your progress."
+                action={
+                  <Button icon={Plus} onClick={openAddApplication}>
+                    Add application
+                  </Button>
+                }
+              />
+            ) : (
+              <ApplicationsTable applications={recentApplications} caption="Recently added applications" />
+            )}
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
