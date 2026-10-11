@@ -11,7 +11,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
 import { APPLICATION_SOURCES, EMPLOYMENT_TYPES, STATUS_BY_VALUE, getOptionLabel } from '../constants/applications';
 import { useApplicationActions } from '../hooks/useApplicationActions';
-import { useApplications } from '../hooks/useApplications';
+import { useApplication } from '../hooks/useApplicationData';
 import { describeDueDate, formatDate, formatDateTime, todayISO } from '../utils/date';
 import { isHttpUrl } from '../utils/validation';
 
@@ -50,7 +50,7 @@ export default function ApplicationDetailsPage() {
   const { applicationId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { applications, status } = useApplications();
+  const applicationQuery = useApplication(applicationId);
   const { openEdit, openDelete } = useApplicationActions();
   const [today] = useState(() => todayISO());
 
@@ -71,11 +71,24 @@ export default function ApplicationDetailsPage() {
     </Link>
   );
 
-  if (status === 'error') return <LoadErrorAlert />;
-  if (status === 'loading') return <DetailsSkeleton />;
+  if (applicationQuery.isPending) return <DetailsSkeleton />;
 
-  const application = applications.find((item) => item.id === applicationId);
-  if (!application) {
+  const notFound = applicationQuery.error?.name === 'NotFoundError';
+  if (applicationQuery.isError && !notFound) {
+    return (
+      <div className="space-y-6">
+        {backLink}
+        <LoadErrorAlert
+          error={applicationQuery.error}
+          onRetry={() => applicationQuery.refetch()}
+          title="We couldn’t load this application"
+        />
+      </div>
+    );
+  }
+
+  const application = applicationQuery.data;
+  if (notFound || !application) {
     return (
       <Card>
         <EmptyState

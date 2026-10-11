@@ -137,22 +137,24 @@ export function sortApplications(applications, sort, order) {
   });
 }
 
+/**
+ * Filters, sorts and paginates like GET /api/applications. A page past the end
+ * returns no items (the API does the same); callers decide how to recover.
+ */
 export function queryApplications(applications, query) {
   const filtered = filterApplications(applications, query);
   const sorted = sortApplications(filtered, query.sort, query.order);
   const total = sorted.length;
   const pageCount = Math.max(1, Math.ceil(total / query.pageSize));
-  const page = Math.min(query.page, pageCount);
-  const start = (page - 1) * query.pageSize;
+  const start = (query.page - 1) * query.pageSize;
   const items = sorted.slice(start, start + query.pageSize);
 
-  return {
-    items,
-    total,
-    page,
-    pageSize: query.pageSize,
-    pageCount,
-    rangeStart: total === 0 ? 0 : start + 1,
-    rangeEnd: start + items.length,
-  };
+  return { items, total, page: query.page, pageSize: query.pageSize, pageCount };
+}
+
+/** "Showing X–Y of Z" numbers for a page of results. */
+export function getPageRange({ page, pageSize, total }, itemCount) {
+  if (itemCount === 0) return { rangeStart: 0, rangeEnd: 0, total };
+  const rangeStart = (page - 1) * pageSize + 1;
+  return { rangeStart, rangeEnd: rangeStart + itemCount - 1, total };
 }

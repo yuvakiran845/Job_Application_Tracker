@@ -1,11 +1,14 @@
 /**
  * In-memory implementation of the application data service (VITE_DATA_SOURCE=mock,
- * the default). Seeded with development-only sample data; changes live until the
- * page is reloaded. Mirrors the REST API's behaviour and errors so the UI can be
- * developed and tested without a server. Used through services/applicationService.js.
+ * development and tests only). Seeded with development-only sample data; changes
+ * live until the page is reloaded. Mirrors the REST API's responses, filtering,
+ * pagination and errors so the UI can be developed and tested without a server.
+ * Used through services/applicationService.js.
  */
 import { buildSampleApplications } from '../data/sampleApplications';
 import { createApplicationRecord } from '../utils/applicationModel';
+import { DEFAULT_QUERY, queryApplications } from '../utils/applicationQuery';
+import { computeApplicationStats } from '../utils/stats';
 import { validateApplicationInput } from '../utils/validation';
 import { NotFoundError, ValidationError } from './errors';
 
@@ -38,9 +41,21 @@ function assertValid(input) {
   }
 }
 
-export async function listApplications() {
+/** Same contract as GET /api/applications: `{ items, meta: { page, pageSize, total, pageCount } }`. */
+export async function listApplications(query = {}) {
   await simulateLatency();
-  return structuredClone(getStore());
+  const { items, page, pageSize, total, pageCount } = queryApplications(getStore(), { ...DEFAULT_QUERY, ...query });
+  return structuredClone({ items, meta: { page, pageSize, total, pageCount } });
+}
+
+export async function getApplication(id) {
+  await simulateLatency();
+  return structuredClone(findOrThrow(id));
+}
+
+export async function getApplicationStats({ appliedSince }) {
+  await simulateLatency();
+  return computeApplicationStats(getStore(), { appliedSince });
 }
 
 export async function createApplication(input) {
@@ -73,7 +88,7 @@ export async function deleteApplication(id) {
   store = getStore().filter((item) => item.id !== id);
 }
 
-/** Development-only: restores the original sample data. Removed when the API is connected. */
+/** Development-only: restores the original sample data. */
 export async function resetSampleData() {
   await simulateLatency();
   store = buildSampleApplications();

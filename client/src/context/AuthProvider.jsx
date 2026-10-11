@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { IS_MOCK_DATA } from '../config';
 import { SESSION_EXPIRED_EVENT } from '../services/apiClient';
 import * as defaultAuthService from '../services/authService';
@@ -10,7 +11,8 @@ const GUEST = { id: 'guest', name: 'Guest', email: '' };
 /**
  * Holds the signed-in user. On start it asks the API who is signed in (the session
  * is an HttpOnly cookie, so this is the only way to know). Listens for expired
- * sessions reported by the API client.
+ * sessions reported by the API client, and empties the data cache whenever the
+ * signed-in user changes so one account's data is never shown to another.
  *
  * `service` and `enabled` are injectable for tests.
  */
@@ -19,6 +21,12 @@ export function AuthProvider({ children, service = defaultAuthService, enabled =
     enabled ? { status: 'loading', user: null } : { status: 'authenticated', user: GUEST },
   );
   const [attempt, setAttempt] = useState(0);
+  const queryClient = useQueryClient();
+  const userId = state.user?.id ?? null;
+
+  // Runs after the signed-in screens have unmounted (sign-out, expiry) and before a
+  // newly signed-in user's screens load.
+  useEffect(() => () => queryClient.clear(), [userId, queryClient]);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -75,9 +83,20 @@ export function AuthProvider({ children, service = defaultAuthService, enabled =
     setState({ status: 'unauthenticated', user: null, reason: 'signed-out' });
   }, [service]);
 
+  const updateProfile = useCallback(
+    async (changes) => {
+      const user = await service.updateProfile(changes);
+      setState((current) => ({ ...current, user }));
+      return user;
+    },
+    [service],
+  );
+
+  const changePassword = useCallback((passwords) => service.changePassword(passwords), [service]);
+
   const value = useMemo(
-    () => ({ ...state, enabled, login, register, logout, retry }),
-    [state, enabled, login, register, logout, retry],
+    () => ({ ...state, enabled, login, register, logout, retry, updateProfile, changePassword }),
+    [state, enabled, login, register, logout, retry, updateProfile, changePassword],
   );
 
   return <AuthContext value={value}>{children}</AuthContext>;

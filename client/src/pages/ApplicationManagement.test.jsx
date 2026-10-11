@@ -1,6 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { resetSampleData } from '../services/applicationService';
+import { ApiError } from '../services/errors';
+import * as mockService from '../services/mockApplicationService';
 import { getRowCompanies, getRowFor, getStatValue, renderApp } from '../test/renderApp';
 
 const TABLE = 'All applications';
@@ -44,6 +46,41 @@ describe('status changes', () => {
     await user.selectOptions(within(row).getByRole('combobox', { name: /^Status for/ }), 'applied');
     expect(await screen.findByText(/Applied date set to today\./)).toBeTruthy();
     expect(within(getRowFor(TABLE, 'Sablewood Games')).queryByText('Not applied yet')).toBeNull();
+  });
+});
+
+describe('optimistic status changes', () => {
+  it('shows the new status at once and rolls it back if the save fails', async () => {
+    const { user } = await openApplications();
+    let rejectSave;
+    vi.spyOn(mockService, 'updateApplication').mockImplementationOnce(
+      () => new Promise((_resolve, reject) => (rejectSave = reject)),
+    );
+    const statusOf = () =>
+      within(getRowFor(TABLE, 'Northwind Labs')).getByRole('combobox', { name: /^Status for/ }).value;
+
+    await user.selectOptions(
+      within(getRowFor(TABLE, 'Northwind Labs')).getByRole('combobox', { name: /^Status for/ }),
+      'offer',
+    );
+    await waitFor(() => expect(statusOf()).toBe('offer')); // optimistic
+
+    rejectSave(new ApiError('The CareerFlow server is unavailable right now.', { status: 503 }));
+    expect(await screen.findByText('Couldn’t update status')).toBeTruthy();
+    expect(screen.getByText('Your change was undone. Please try again.')).toBeTruthy();
+    await waitFor(() => expect(statusOf()).toBe('interview')); // rolled back
+  });
+
+  it('refreshes the list when the record was deleted elsewhere', async () => {
+    const { user } = await openApplications();
+    await mockService.deleteApplication('sample-1'); // e.g. deleted in another tab
+
+    await user.selectOptions(
+      within(getRowFor(TABLE, 'Northwind Labs')).getByRole('combobox', { name: /^Status for/ }),
+      'offer',
+    );
+    expect(await screen.findByText('This application no longer exists. It may have been deleted.')).toBeTruthy();
+    await waitFor(() => expect(getRowCompanies(TABLE)).not.toContain('Northwind Labs'));
   });
 });
 
@@ -102,6 +139,25 @@ describe('delete', () => {
     expect(await screen.findByText('Application deleted')).toBeTruthy();
     await waitFor(() => expect(getRowCompanies(TABLE)).not.toContain('Northwind Labs'));
     expect(screen.getByText('11 applications in total.')).toBeTruthy();
+  });
+});
+
+describe('pagination after deletes', () => {
+  it('moves back a page when the last item on the current page is deleted', async () => {
+    const { user, router } = renderApp('/applications?page=2');
+    await screen.findByRole('table', { name: TABLE });
+    expect(getRowCompanies(TABLE)).toEqual(['Harborline Logistics', 'Meridian Cloud']);
+
+    for (const company of ['Harborline Logistics', 'Meridian Cloud']) {
+      const menu = await openRowMenu(user, company);
+      await user.click(within(menu).getByRole('menuitem', { name: 'Delete' }));
+      await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete application' }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    }
+
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+    await waitFor(() => expect(getRowCompanies(TABLE)).toHaveLength(10));
+    expect(screen.getByText('10 applications in total.')).toBeTruthy();
   });
 });
 

@@ -48,6 +48,18 @@ describe('applications list: search, filters, sorting and pagination', () => {
     expect(router.state.location.search).toBe('');
   });
 
+  it('never shows an overall total smaller than the matching results', async () => {
+    const { user } = await openApplications();
+    // Records added elsewhere (e.g. another device) after the totals were loaded.
+    const { createApplication } = await import('../services/mockApplicationService');
+    for (let i = 0; i < 10; i += 1) {
+      await createApplication({ company: `Engineering Co ${i}`, jobTitle: 'Engineer', location: 'Remote', status: 'saved' });
+    }
+    await user.type(screen.getByRole('searchbox', { name: 'Search by company or job title' }), 'engineer');
+    await waitFor(() => expect(screen.getByText(/^15 (of 22 applications|applications) match your filters\.$/)).toBeTruthy(), DEBOUNCED);
+    expect(screen.queryByText(/15 of 12/)).toBeNull();
+  });
+
   it('filters by location', async () => {
     const { user } = await openApplications();
     await user.type(screen.getByRole('textbox', { name: 'Location' }), 'remote');

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { listApplications, updateApplication } from './apiApplicationService';
+import { getApplicationStats, listApplications, updateApplication } from './apiApplicationService';
 import { SESSION_EXPIRED_EVENT, apiRequest } from './apiClient';
 import { getCurrentUser } from './authService';
 import { ApiError, NotFoundError, ValidationError } from './errors';
@@ -100,14 +100,28 @@ describe('apiRequest', () => {
 });
 
 describe('apiApplicationService', () => {
-  it('loads every page of applications', async () => {
-    const fetchMock = mockFetch(
-      jsonResponse(200, { data: [{ id: 'a' }, { id: 'b' }], meta: { page: 1, pageSize: 100, total: 3, pageCount: 2 } }),
-      jsonResponse(200, { data: [{ id: 'c' }], meta: { page: 2, pageSize: 100, total: 3, pageCount: 2 } }),
-    );
-    const items = await listApplications();
-    expect(items.map((item) => item.id)).toEqual(['a', 'b', 'c']);
-    expect(fetchMock.mock.calls.map(([url]) => url.searchParams.get('page'))).toEqual(['1', '2']);
+  it('passes search, filters, sorting and paging to the server and returns { items, meta }', async () => {
+    const meta = { page: 2, pageSize: 10, total: 13, pageCount: 2 };
+    const fetchMock = mockFetch(jsonResponse(200, { data: [{ id: 'k' }], meta }));
+    const result = await listApplications({ q: 'react', status: 'interview', location: '', sort: 'company', order: 'asc', page: 2, pageSize: 10 });
+
+    expect(result).toEqual({ items: [{ id: 'k' }], meta });
+    const [url] = fetchMock.mock.calls[0];
+    expect(url.pathname).toBe('/api/applications');
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      q: 'react',
+      status: 'interview',
+      sort: 'company',
+      order: 'asc',
+      page: '2',
+      pageSize: '10',
+    });
+  });
+
+  it('asks for stats from the user’s local window start', async () => {
+    const fetchMock = mockFetch(jsonResponse(200, { data: { total: 3 } }));
+    await expect(getApplicationStats({ appliedSince: '2026-09-12' })).resolves.toEqual({ total: 3 });
+    expect(fetchMock.mock.calls[0][0].search).toBe('?appliedSince=2026-09-12');
   });
 
   it('sends partial updates with PUT to an encoded URL', async () => {

@@ -31,5 +31,24 @@ export function createFakeAuthService({ signedIn = false } = {}) {
     logout: vi.fn(async () => {
       current = null;
     }),
+    updateProfile: vi.fn(async ({ name, email, currentPassword }) => {
+      const account = accounts.find((item) => item.id === current.id);
+      if (email !== undefined && email.toLowerCase() !== account.email) {
+        if (currentPassword !== account.password) {
+          throw new ValidationError('Current password is incorrect.', { currentPassword: 'Current password is incorrect.' });
+        }
+        account.email = email.toLowerCase();
+      }
+      if (name !== undefined) account.name = name;
+      current = { id: account.id, name: account.name, email: account.email };
+      return current;
+    }),
+    changePassword: vi.fn(async ({ currentPassword, newPassword }) => {
+      const account = accounts.find((item) => item.id === current.id);
+      if (currentPassword !== account.password) {
+        throw new ValidationError('Current password is incorrect.', { currentPassword: 'Current password is incorrect.' });
+      }
+      account.password = newPassword;
+    }),
   };
 }

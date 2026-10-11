@@ -1,38 +1,34 @@
 import { STATUS_VALUES } from '../constants/applications';
 import { addDays, toISODate } from './date';
 
+export const RECENT_WINDOW_DAYS = 30;
+
+/** First day (local calendar date) of the "applied in the last 30 days" window, including today. */
+export function getRecentWindowStart(now = new Date(), windowDays = RECENT_WINDOW_DAYS) {
+  return toISODate(addDays(now, -(windowDays - 1)));
+}
+
 /**
- * Dashboard metrics derived from a list of applications.
+ * Dashboard numbers in the same shape as GET /api/applications/stats, computed
+ * from a list (used by the sample-data service).
  * - interviews / offers / rejections count applications *currently* in that status.
- * - appliedRecently counts applications whose applied date falls within the last
- *   `windowDays` days, including today.
+ * - appliedSince.count counts applications applied on or after `appliedSince`.
  */
-export function getApplicationStats(applications, { now = new Date(), windowDays = 30 } = {}) {
+export function computeApplicationStats(applications, { appliedSince }) {
   const byStatus = Object.fromEntries(STATUS_VALUES.map((status) => [status, 0]));
-  const today = toISODate(now);
-  const windowStart = toISODate(addDays(now, -(windowDays - 1)));
-  let appliedRecently = 0;
+  let appliedSinceCount = 0;
 
   for (const application of applications) {
     if (application.status in byStatus) byStatus[application.status] += 1;
-
-    const { appliedDate } = application;
-    if (appliedDate && appliedDate >= windowStart && appliedDate <= today) {
-      appliedRecently += 1;
-    }
+    if (application.appliedDate && application.appliedDate >= appliedSince) appliedSinceCount += 1;
   }
 
   return {
     total: applications.length,
+    byStatus,
     interviews: byStatus.interview,
     offers: byStatus.offer,
     rejections: byStatus.rejected,
-    byStatus,
-    appliedRecently,
-    windowDays,
+    appliedSince: { from: appliedSince, count: appliedSinceCount },
   };
-}
-
-export function sortByNewest(applications) {
-  return [...applications].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }

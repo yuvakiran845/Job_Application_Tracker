@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_QUERY,
   countActiveFilters,
+  getPageRange,
   filterApplications,
   parseApplicationQuery,
   queryApplications,
@@ -100,19 +101,26 @@ describe('sortApplications', () => {
 describe('queryApplications', () => {
   const list = Array.from({ length: 23 }, (_, index) => app({ company: `Company ${index + 1}` }));
 
-  it('paginates and reports the visible range', () => {
+  it('paginates', () => {
     const result = queryApplications(list, query({ sort: 'company', order: 'asc', page: 3, pageSize: 10 }));
-    expect(result).toMatchObject({ total: 23, page: 3, pageCount: 3, rangeStart: 21, rangeEnd: 23 });
+    expect(result).toMatchObject({ total: 23, page: 3, pageCount: 3 });
     expect(companies(result.items)).toEqual(['Company 21', 'Company 22', 'Company 23']);
   });
 
-  it('clamps a page number that is out of range', () => {
-    expect(queryApplications(list, query({ page: 99 })).page).toBe(3);
+  it('returns an empty page past the end, like the API', () => {
+    expect(queryApplications(list, query({ page: 99 }))).toMatchObject({ items: [], page: 99, pageCount: 3, total: 23 });
   });
 
   it('handles an empty result', () => {
     const result = queryApplications(list, query({ q: 'nothing matches' }));
-    expect(result).toMatchObject({ items: [], total: 0, page: 1, pageCount: 1, rangeStart: 0, rangeEnd: 0 });
+    expect(result).toMatchObject({ items: [], total: 0, page: 1, pageCount: 1 });
+  });
+});
+
+describe('getPageRange', () => {
+  it('describes the visible rows', () => {
+    expect(getPageRange({ page: 3, pageSize: 10, total: 23 }, 3)).toEqual({ rangeStart: 21, rangeEnd: 23, total: 23 });
+    expect(getPageRange({ page: 1, pageSize: 10, total: 0 }, 0)).toEqual({ rangeStart: 0, rangeEnd: 0, total: 0 });
   });
 });
 

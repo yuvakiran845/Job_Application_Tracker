@@ -1,6 +1,7 @@
 import { GuestOnly, RequireAuth } from './components/auth/RouteGuards';
 import { AppLayout } from './layouts/AppLayout';
 import { AuthLayout } from './layouts/AuthLayout';
+import AccountPage from './pages/AccountPage';
 import ApplicationDetailsPage from './pages/ApplicationDetailsPage';
 import ApplicationsPage from './pages/ApplicationsPage';
 import DashboardPage from './pages/DashboardPage';
@@ -41,6 +42,7 @@ export const routes = [
             element: <ApplicationDetailsPage />,
             handle: { title: 'Application details' },
           },
+          { path: 'account', element: <AccountPage />, handle: { title: 'Account' } },
           { path: '*', element: <NotFoundPage />, handle: { title: 'Page not found' } },
         ],
       },

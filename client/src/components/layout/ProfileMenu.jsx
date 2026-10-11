@@ -1,6 +1,7 @@
-import { ChevronDown, LogOut, RotateCcw, UserRound } from 'lucide-react';
+import { useNavigate } from 'react-router';
+import { ChevronDown, LogOut, RotateCcw, UserCog, UserRound } from 'lucide-react';
 import { IS_MOCK_DATA } from '../../config';
-import { useApplications } from '../../hooks/useApplications';
+import { useResetSampleData } from '../../hooks/useApplicationData';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 import { getInitials } from '../../utils/format';
@@ -8,12 +9,13 @@ import { DropdownMenu, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparato
 
 export function ProfileMenu() {
   const { user, enabled: authEnabled, logout } = useAuth();
-  const { resetToSampleData } = useApplications();
+  const resetSampleData = useResetSampleData();
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   async function handleResetSampleData() {
     try {
-      await resetToSampleData();
+      await resetSampleData.mutateAsync();
       toast({
         variant: 'info',
         title: 'Sample data restored',
@@ -66,9 +68,14 @@ export function ProfileMenu() {
         </DropdownMenuItem>
       )}
       {authEnabled && (
-        <DropdownMenuItem icon={LogOut} onSelect={handleSignOut}>
-          Sign out
-        </DropdownMenuItem>
+        <>
+          <DropdownMenuItem icon={UserCog} onSelect={() => navigate('/account')}>
+            Account settings
+          </DropdownMenuItem>
+          <DropdownMenuItem icon={LogOut} onSelect={handleSignOut}>
+            Sign out
+          </DropdownMenuItem>
+        </>
       )}
     </DropdownMenu>
   );

@@ -2,7 +2,7 @@ import { useContext } from 'react';
 import { AuthContext } from '../context/authContext';
 
 /**
- * `{ status, user, reason, enabled, login, register, logout, retry }`.
+ * `{ status, user, reason, enabled, login, register, logout, retry, updateProfile, changePassword }`.
  * status: "loading" | "authenticated" | "unauthenticated" | "error".
  */
 export function useAuth() {

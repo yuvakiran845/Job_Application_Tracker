@@ -27,3 +27,14 @@ export async function register({ name, email, password }) {
 export async function logout() {
   await apiRequest('/auth/logout', { method: 'POST' });
 }
+
+/** `{ name?, email?, currentPassword? }` — changing the email requires the current password. */
+export async function updateProfile(changes) {
+  const { data } = await apiRequest('/users/me', { method: 'PATCH', body: changes });
+  return data;
+}
+
+/** Signs out every other session; this one stays signed in. */
+export async function changePassword({ currentPassword, newPassword }) {
+  await apiRequest('/users/me/password', { method: 'PUT', body: { currentPassword, newPassword } });
+}

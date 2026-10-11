@@ -1,11 +1,19 @@
-// Client-side checks for the sign-in and sign-up forms. They mirror the API's
-// rules (server/src/validators/authValidators.js) for instant feedback; the API
+// Client-side checks for the account forms. They mirror the API's rules
+// (server/src/validators/authValidators.js) for instant feedback; the API
 // remains the authority.
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const PASSWORD_MIN = 8;
 const PASSWORD_MAX = 64;
 const BCRYPT_MAX_BYTES = 72;
+const NAME_MAX = 80;
+
+function checkName(name) {
+  const value = name.trim();
+  if (!value) return 'Name is required.';
+  if (value.length > NAME_MAX) return `Name must be ${NAME_MAX} characters or fewer.`;
+  return undefined;
+}
 
 function checkEmail(email) {
   const value = email.trim();
@@ -14,29 +22,43 @@ function checkEmail(email) {
   return undefined;
 }
 
+function checkNewPassword(password, label = 'Password') {
+  if (password.length < PASSWORD_MIN) return `${label} must be at least ${PASSWORD_MIN} characters.`;
+  if (password.length > PASSWORD_MAX) return `${label} must be ${PASSWORD_MAX} characters or fewer.`;
+  if (new TextEncoder().encode(password).length > BCRYPT_MAX_BYTES) return `${label} is too long.`;
+  if (!password.trim()) return `${label} can’t be only spaces.`;
+  return undefined;
+}
+
+function collect(checks) {
+  return Object.fromEntries(Object.entries(checks).filter(([, message]) => message));
+}
+
 export function validateLogin({ email, password }) {
-  const errors = {};
-  const emailError = checkEmail(email);
-  if (emailError) errors.email = emailError;
-  if (!password) errors.password = 'Password is required.';
-  return errors;
+  return collect({ email: checkEmail(email), password: password ? undefined : 'Password is required.' });
 }
 
 export function validateRegistration({ name, email, password }) {
-  const errors = {};
-  const trimmedName = name.trim();
-  if (!trimmedName) errors.name = 'Name is required.';
-  else if (trimmedName.length > 80) errors.name = 'Name must be 80 characters or fewer.';
+  return collect({ name: checkName(name), email: checkEmail(email), password: checkNewPassword(password) });
+}
 
-  const emailError = checkEmail(email);
-  if (emailError) errors.email = emailError;
+/** `emailChanged` makes the current password required, as the API does. */
+export function validateProfile({ name, email, currentPassword }, { emailChanged }) {
+  return collect({
+    name: checkName(name),
+    email: checkEmail(email),
+    currentPassword:
+      emailChanged && !currentPassword ? 'Enter your current password to change your email.' : undefined,
+  });
+}
 
-  if (password.length < PASSWORD_MIN) errors.password = `Password must be at least ${PASSWORD_MIN} characters.`;
-  else if (password.length > PASSWORD_MAX) errors.password = `Password must be ${PASSWORD_MAX} characters or fewer.`;
-  else if (new TextEncoder().encode(password).length > BCRYPT_MAX_BYTES) errors.password = 'Password is too long.';
-  else if (!password.trim()) errors.password = 'Password can’t be only spaces.';
-
-  return errors;
+export function validatePasswordChange({ currentPassword, newPassword }) {
+  return collect({
+    currentPassword: currentPassword ? undefined : 'Current password is required.',
+    newPassword:
+      checkNewPassword(newPassword, 'New password') ??
+      (newPassword === currentPassword ? 'Choose a password different from your current one.' : undefined),
+  });
 }
 
 /** Only same-app paths are allowed as post-login destinations (prevents open redirects). */

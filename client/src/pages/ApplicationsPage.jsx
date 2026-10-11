@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { FilterX, Inbox, Plus, SearchX } from 'lucide-react';
+import { useEffect } from 'react';
+import { FilterX, Inbox, LoaderCircle, Plus, SearchX } from 'lucide-react';
 import { ApplicationFilters } from '../components/applications/ApplicationFilters';
 import { ApplicationsTable, ApplicationsTableSkeleton } from '../components/applications/ApplicationsTable';
 import { LoadErrorAlert } from '../components/applications/LoadErrorAlert';
@@ -8,34 +8,54 @@ import { Card, CardHeader } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Pagination } from '../components/ui/Pagination';
 import { useApplicationActions } from '../hooks/useApplicationActions';
+import { useApplicationList, useApplicationStats } from '../hooks/useApplicationData';
 import { useApplicationQuery } from '../hooks/useApplicationQuery';
-import { useApplications } from '../hooks/useApplications';
-import { PAGE_SIZES, countActiveFilters, queryApplications } from '../utils/applicationQuery';
+import { PAGE_SIZES, countActiveFilters, getPageRange } from '../utils/applicationQuery';
 import { pluralize } from '../utils/format';
 
 export default function ApplicationsPage() {
   const { openAdd } = useApplicationActions();
-  const { applications, status } = useApplications();
   const { query, updateQuery, clearFilters } = useApplicationQuery();
-  // Level 6: this becomes a request to GET /api/applications with the same query params.
-  const result = useMemo(() => queryApplications(applications, query), [applications, query]);
+  // Search, filters, sorting and pagination run on the server (GET /api/applications).
+  const listQuery = useApplicationList(query);
+  // The overall total (without filters) comes from the dashboard stats.
+  const statsQuery = useApplicationStats();
   const activeFilterCount = countActiveFilters(query);
 
-  if (status === 'error') return <LoadErrorAlert />;
+  const result = listQuery.data;
+  const overallTotal = statsQuery.data?.total;
+  const pageCount = result?.meta.pageCount;
+  const pagePastEnd = Boolean(result && result.items.length === 0 && result.meta.total > 0 && query.page > pageCount);
 
-  const loading = status === 'loading';
+  // A page that no longer exists (e.g. after deleting the last item on it): go to the last page.
+  useEffect(() => {
+    if (pagePastEnd) updateQuery({ page: pageCount });
+  }, [pagePastEnd, pageCount, updateQuery]);
+
+  if (listQuery.isError && !result) {
+    return <LoadErrorAlert error={listQuery.error} onRetry={() => listQuery.refetch()} />;
+  }
+
+  const loading = listQuery.isPending;
+  const matching = result?.meta.total ?? 0;
+  const hasNoApplications = !loading && activeFilterCount === 0 && matching === 0;
+
   let summary = 'Loading applications…';
   if (!loading) {
+    // The overall total comes from a separate request; never show it if it's behind the list.
+    const totalKnown = overallTotal !== undefined && overallTotal >= matching;
     summary =
       activeFilterCount > 0
-        ? `${result.total} of ${pluralize(applications.length, 'application')} match your filters.`
-        : `${pluralize(applications.length, 'application')} in total.`;
+        ? totalKnown
+          ? `${matching} of ${pluralize(overallTotal, 'application')} match your filters.`
+          : `${pluralize(matching, 'application')} match your filters.`
+        : `${pluralize(matching, 'application')} in total.`;
   }
 
   let content;
-  if (loading) {
+  if (loading || pagePastEnd) {
     content = <ApplicationsTableSkeleton rows={8} />;
-  } else if (applications.length === 0) {
+  } else if (hasNoApplications) {
     content = (
       <EmptyState
         icon={Inbox}
@@ -48,7 +68,7 @@ export default function ApplicationsPage() {
         }
       />
     );
-  } else if (result.total === 0) {
+  } else if (matching === 0) {
     content = (
       <EmptyState
         icon={SearchX}
@@ -64,21 +84,30 @@ export default function ApplicationsPage() {
   } else {
     content = (
       <>
-        <ApplicationsTable
-          applications={result.items}
-          caption="All applications"
-          sort={{ field: query.sort, order: query.order }}
-          onSortChange={updateQuery}
-          showDeadline
-        />
+        {listQuery.isError && (
+          <LoadErrorAlert
+            error={listQuery.error}
+            onRetry={() => listQuery.refetch()}
+            title="Showing earlier results — the latest couldn’t be loaded"
+            className="m-4 sm:m-5"
+          />
+        )}
+        {/* Previous results stay visible (dimmed) while the next page or filter loads. */}
+        <div className={listQuery.isPlaceholderData ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
+          <ApplicationsTable
+            applications={result.items}
+            caption="All applications"
+            sort={{ field: query.sort, order: query.order }}
+            onSortChange={updateQuery}
+            showDeadline
+          />
+        </div>
         <Pagination
-          page={result.page}
-          pageCount={result.pageCount}
-          pageSize={result.pageSize}
+          page={result.meta.page}
+          pageCount={result.meta.pageCount}
+          pageSize={result.meta.pageSize}
           pageSizes={PAGE_SIZES}
-          total={result.total}
-          rangeStart={result.rangeStart}
-          rangeEnd={result.rangeEnd}
+          {...getPageRange(result.meta, result.items.length)}
           onPageChange={(page) => updateQuery({ page })}
           onPageSizeChange={(pageSize) => updateQuery({ pageSize })}
         />
@@ -91,7 +120,17 @@ export default function ApplicationsPage() {
       <CardHeader
         titleId="all-applications-title"
         title="All applications"
-        description={<span aria-live="polite">{summary}</span>}
+        description={
+          <span className="inline-flex items-center gap-2" aria-live="polite">
+            {summary}
+            {listQuery.isFetching && !loading && (
+              <>
+                <LoaderCircle className="size-3.5 animate-spin text-slate-400" aria-hidden="true" />
+                <span className="sr-only">Updating</span>
+              </>
+            )}
+          </span>
+        }
         action={
           activeFilterCount > 0 && (
             <Button variant="ghost" size="sm" icon={FilterX} onClick={clearFilters} className="-mr-2">
@@ -100,7 +139,7 @@ export default function ApplicationsPage() {
           )
         }
       />
-      {applications.length > 0 && (
+      {!hasNoApplications && (
         <ApplicationFilters query={query} onChange={updateQuery} activeFilterCount={activeFilterCount} />
       )}
       {content}

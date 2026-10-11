@@ -2,7 +2,7 @@
 
 CareerFlow is a job application tracker for students and job seekers. It keeps every application, interview, deadline, and recruitment update in one place.
 
-> **Status: Level 5 of 9: authentication and security.** Accounts, sign-in, and sessions (HttpOnly cookies) are working, and every API record is private to its owner. In API mode (`VITE_DATA_SOURCE=api`) the frontend requires sign-in. By default it still uses in-memory sample data as a guest, so it runs without a server, until Level 6 connects every screen to the API.
+> **Status: Level 6 of 9: full stack connected.** Every screen reads and writes your own data through the API, with sign-in, server-side search and pagination, and a cache that stays in sync after every change. Sample data is now only an explicit development option (`VITE_DATA_SOURCE=mock`), and production builds never include it.
 
 ## Features so far
 
@@ -15,7 +15,7 @@ CareerFlow is a job application tracker for students and job seekers. It keeps e
   - Search, filters, sort, and page are kept in the URL, so a view can be bookmarked or shared.
 - **Add, view, edit, and delete** applications. Deleting asks for confirmation.
 - **Inline status changes** from any list or the details page. The change shows immediately and is undone if saving fails. Moving a saved job to a submitted status records today as the applied date.
-- **Accounts:** sign up, sign in, and sign out, with protected pages that return you to where you were after signing in.
+- **Accounts:** sign up, sign in, and sign out, with protected pages that return you to where you were after signing in. **Account settings** let you change your name, your email (requires your current password), and your password (signs out your other devices).
 - **Full application record:** company, title, location, job URL, employment type, salary range, source, applied date, deadline, interview date and time, recruiter contact, notes, and created/updated timestamps.
 
 ## Tech stack
@@ -32,15 +32,7 @@ CareerFlow is a job application tracker for students and job seekers. It keeps e
 
 **Requirements:** Node.js `^20.19.0` or `>=22.12.0`, npm 10+. Node 22 or 24 LTS is recommended; Node 20 is past end-of-life.
 
-**Frontend**
-
-```bash
-cd client
-npm install
-npm run dev        # http://localhost:5173
-```
-
-**Backend** (needs MongoDB: a local install, Docker, or Atlas)
+**Backend** (needs MongoDB: a local install, Docker, or Atlas). Start it first:
 
 ```bash
 cd server
@@ -49,19 +41,25 @@ cp .env.example .env   # then set JWT_SECRET (and MONGODB_URI if needed)
 npm run dev            # http://localhost:4000/api/health
 ```
 
-**Frontend + backend together:** run both dev servers, then switch the frontend to the API:
+**Frontend:**
 
 ```bash
-echo VITE_DATA_SOURCE=api > client/.env.local
+cd client
+npm install
+npm run dev        # http://localhost:5173
 ```
 
-Restart `npm run dev` in `client/`. Vite forwards `/api` to `http://localhost:4000`, so no CORS setup is needed locally. Create an account on the sign-up page. To fill it with the sample applications, run:
+Vite forwards `/api` to `http://localhost:4000`, so no CORS setup is needed locally. Create an account on the sign-up page. To fill it with the sample applications, run this in `server/`:
 
 ```bash
 npm run seed -- --email you@example.com
 ```
 
-Delete `client/.env.local` to go back to sample data.
+**Frontend only (no server):** use the in-memory sample data, with no sign-in. It only works in development:
+
+```bash
+echo VITE_DATA_SOURCE=mock > client/.env.local
+```
 
 Running MongoDB locally with Docker: `docker run -d --name careerflow-mongo -p 27017:27017 mongo:8`.
 
@@ -97,14 +95,15 @@ client/
       ui/            Design system: Button, Badge, Card, Field inputs, Modal, ConfirmDialog, DropdownMenu,
                      Pagination, Alert, Toaster, Skeleton, EmptyState
       layout/        Sidebar, mobile drawer, top bar, profile menu
+      auth/          Route guards (RequireAuth, GuestOnly)
       applications/  Table, filters, form, status select, row actions menu
       dashboard/     Stat cards, status breakdown
-    layouts/         AppLayout (shell around every page)
-    pages/           Dashboard, Applications, Application details, Not found, route error (+ page tests)
-    context/         ApplicationsProvider (data state), ApplicationActionsProvider (dialogs), ToastProvider
-    hooks/           useApplications, useApplicationActions, useApplicationQuery, useDebouncedInput,
-                     useToast, useDialog, usePersistentState, usePageTitle
-    services/        applicationService.js: the only data access point for the UI
+    layouts/         AppLayout (signed-in shell), AuthLayout (sign-in pages)
+    pages/           Sign in, Create account, Dashboard, Applications, Application details, Account, Not found (+ tests)
+    context/         AuthProvider (session, cache reset), ApplicationActionsProvider (dialogs), ToastProvider
+    hooks/           useApplicationData (TanStack Query), useAuth, useApplicationActions, useApplicationQuery,
+                     useDebouncedInput, useToast, useDialog, usePersistentState, usePageTitle
+    services/        applicationService.js (API or sample data), apiClient.js, authService.js
     data/            sampleApplications.js: DEVELOPMENT-ONLY sample data
     constants/       Statuses, employment types, sources (mirror the future DB enums)
     utils/           Validation, query (search/filter/sort/paginate), stats, dates, model helpers (+ tests)
@@ -127,14 +126,26 @@ server/
 ### Data flow
 
 ```
-Pages/components → useApplications() → ApplicationsProvider → services/applicationService.js
-                                                               └─ Levels 1–2: in-memory mock seeded from data/sampleApplications.js
-                                                               └─ Level 6: REST API calls (same function signatures)
+Pages → hooks/useApplicationData.js (TanStack Query: cache, loading/error states, invalidation)
+      → services/applicationService.js
+          ├─ apiApplicationService.js → apiClient.js → /api (default; always in production)
+          └─ mockApplicationService.js (VITE_DATA_SOURCE=mock, development and tests only)
 ```
 
-Components never import sample data directly. The service functions (`list`, `create`, `update`, `delete`) are async and can throw a `ValidationError` with per-field errors or a `NotFoundError`, the same contract the API client will follow. Switching to the real backend therefore only changes `applicationService.js`.
+| Screen | Requests |
+| --- | --- |
+| Dashboard | `GET /applications/stats?appliedSince=<local date 29 days ago>` and `GET /applications?sort=createdAt&order=desc&pageSize=5` |
+| Applications | `GET /applications?q=…&status=…&location=…&from=…&to=…&sort=…&order=…&page=…&pageSize=…`. The parameters mirror the page URL. |
+| Details | `GET /applications/:id` |
+| Account | `PATCH /users/me`, `PUT /users/me/password` |
 
-Search, filtering, sorting, and pagination live in one pure function, `utils/applicationQuery.js`. Its parameters (`q`, `status`, `location`, `from`, `to`, `sort`, `order`, `page`, `pageSize`) are the same names used in the URL and planned for `GET /api/applications`, so this work can move to the server in Level 6 without changing the UI.
+Every change updates or invalidates the affected cache entries (lists, details, and dashboard numbers), so screens stay in sync without manual refreshes.
+- **Status changes** are optimistic: every cached view updates at once and is restored if the save fails.
+- **Pagination:** while the next page or filter loads, the previous results stay visible, dimmed.
+- **Account switches:** the whole cache is emptied whenever the signed-in user changes, so one account's data is never shown to another.
+- **Dashboard numbers** revalidate each time a screen that shows them opens, which picks up changes made on other devices.
+
+The sample-data service mirrors the API exactly (filtering via `utils/applicationQuery.js`, response shapes, errors, paging), which keeps the UI tests meaningful. It's loaded through a dynamic import guarded by a condition that is statically false in production builds, so it isn't included in the production bundle at all.
 
 ### Design decisions
 
@@ -147,7 +158,8 @@ Search, filtering, sorting, and pagination live in one pure function, `utils/app
 - **Text filters** update the URL after a 300 ms pause, so typing stays responsive and the browser history isn't flooded.
 - **Validation runs in layers.** Client-side checks exist for user experience. The API validates every request with zod, which strips unknown fields, so a client can never set `userId`, `_id`, or timestamps. The Mongoose schema enforces the same rules again before saving.
 - **Indexes:** every index starts with `userId` (`{userId, createdAt}`, `{userId, status}`, `{userId, appliedDate}`, `{userId, deadline}`), because every query is scoped by owner. Tests run MongoDB's `explain()` on the real list and stats queries and fail on a collection scan. Case-insensitive collation is applied only when sorting by company, because string comparisons can use an index only when the collations match.
-- **Data source switch:** `client/src/services/applicationService.js` delegates to `apiApplicationService.js` (HTTP via `apiClient.js`) or `mockApplicationService.js` (sample data). Both share function signatures and error types (`ValidationError`, `NotFoundError`, `ApiError`), so the UI doesn't know which one is active.
+- **One service contract:** `apiApplicationService.js` and `mockApplicationService.js` share function signatures, response shapes (`{ items, meta }`), and error types (`ValidationError`, `NotFoundError`, `ApiError`), so the UI doesn't know which one is active.
+- **Retries:** queries retry only transient failures (network errors, timeouts, 5xx), at most twice. Writes are never retried automatically, to avoid duplicates. Submit buttons lock while saving.
 - **Ownership:** every database query includes the authenticated owner's `userId`, taken from the verified session and never from the request. Records belonging to other users return 404, the same as missing ones, so their existence isn't revealed.
 
 ## MongoDB Atlas setup
@@ -248,7 +260,7 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
 | 3 | Express backend foundation and API | ✅ Implemented and verified |
 | 4 | MongoDB Atlas integration | ✅ Implemented and verified (local MongoDB 8.2; Atlas guide above) |
 | 5 | Authentication and security | ✅ Implemented and verified |
-| 6 | Connect frontend to API | ⬜ Not started |
+| 6 | Connect frontend to API | ✅ Implemented and verified |
 | 7 | Kanban, analytics, calendar, activity, CSV export | ⬜ Not started |
 | 8 | Testing, accessibility, and polish | ⬜ Not started |
 | 9 | Deployment and documentation | ⬜ Not started |
@@ -284,13 +296,32 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
   - Failed sign-ins hit 429 with `Retry-After`.
   - The API log contains no emails, passwords, or tokens.
 
+**Level 6 verification:**
+- **Client:** `npm test` (125 passing, including the new tests below). Production builds were checked to contain no sample data, both by default and with `VITE_DATA_SOURCE=mock` set.
+  - Account settings.
+  - Cache isolation between users.
+  - Optimistic status changes and rollback.
+  - Recovery when a page empties after deletes.
+  - Never showing an overall total smaller than the filtered results.
+  - Server-side list, stats, and detail requests.
+- **Server:** `npm test` (82 passing; no server changes in this level).
+- **End-to-end** in the browser against the real API and local MongoDB:
+  - A new user signed up and saw an empty dashboard.
+  - They added an application, edited it, changed its status, and deleted it (with confirmation). The dashboard numbers followed each step, and the API confirmed each change.
+  - The data persisted across a reload and across signing out and back in.
+  - Search, filters, and paging went to the server as query parameters.
+  - A second user saw none of the first user's data.
+  - Account settings updated the name, and the password change kept this session signed in while invalidating the old password.
+  - No horizontal scrolling at phone width.
+  - This run found a stale total ("5 of 0 applications"), which is now fixed and covered by a test.
+
 ## Known limitations
 
-- The frontend defaults to in-memory sample data. In API mode it currently loads all of the user's applications and filters them in the browser; Level 6 moves search, filters, pagination, and stats to the API's query parameters and `/stats` endpoint.
 - Verified against a local MongoDB 8.2. Connecting to Atlas needs your own cluster and credentials (see *MongoDB Atlas setup*).
-- There's no profile page in the UI yet (the API supports profile and password updates); it comes with Level 6. Password reset by email isn't included, because email integrations are out of scope.
+- Password reset by email isn't included, because email integrations are out of scope. Account deletion isn't implemented yet.
+- Changes made on another device appear when a screen is reopened or the browser tab regains focus. There's no live push.
 - Saved filter views are deferred to Level 7, where they can be stored per user. For now, bookmark the URL, which already contains the filters.
 - Search covers company and job title only; location has its own filter.
 - The status history and activity timeline are planned for Level 7. Only `createdAt` and `updatedAt` are tracked today.
 - Pipeline, Calendar, and Analytics are shown in the sidebar as "Coming soon" and are not clickable.
-- Sample-data mode has no sign-in: it uses a clearly labelled guest.
+- Sample-data mode (development only) has no sign-in: it uses a clearly labelled guest.
