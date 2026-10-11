@@ -2,7 +2,7 @@ import { NavLink } from 'react-router';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { cn } from '../../utils/format';
 import { Logo } from './Logo';
-import { PRIMARY_NAV, UPCOMING_NAV } from './navigation';
+import { PRIMARY_NAV } from './navigation';
 
 function Tooltip({ label }) {
   return (
@@ -58,41 +58,6 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate, heade
           ))}
         </ul>
 
-        <div className="mt-8">
-          <p
-            className={cn(
-              'px-3 text-xs font-medium tracking-wide text-slate-500 uppercase',
-              collapsed && 'sr-only',
-            )}
-          >
-            Coming soon
-          </p>
-          <ul className={cn('space-y-1', !collapsed && 'mt-2')}>
-            {UPCOMING_NAV.map(({ label, icon: Icon }) => (
-              <li key={label}>
-                <span
-                  className={cn(
-                    'group relative flex h-9 cursor-not-allowed items-center gap-3 rounded-lg text-sm font-medium text-slate-500',
-                    collapsed ? 'justify-center' : 'px-3',
-                  )}
-                >
-                  <Icon className="size-[18px] shrink-0 opacity-70" aria-hidden="true" />
-                  <span className={cn(collapsed && 'sr-only')}>{label}</span>
-                  {collapsed ? (
-                    <>
-                      <span className="sr-only"> (coming soon)</span>
-                      <Tooltip label={`${label} · coming soon`} />
-                    </>
-                  ) : (
-                    <span className="ml-auto rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] leading-none font-medium text-slate-500">
-                      Soon
-                    </span>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
       </nav>
 
       {onToggleCollapse && (

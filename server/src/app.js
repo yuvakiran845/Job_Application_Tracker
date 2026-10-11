@@ -10,6 +10,7 @@ import { createAuthRateLimiters } from './middleware/rateLimit.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { createApplicationRouter } from './routes/applicationRoutes.js';
 import { createAuthRouter, createUserRouter } from './routes/authRoutes.js';
+import { createViewRouter } from './routes/viewRoutes.js';
 
 /**
  * Builds the Express app without connecting to the database or listening on a
@@ -46,6 +47,7 @@ export function createApp({ corsOrigins = config.corsOrigins, authRateLimit } = 
   api.use('/auth', createAuthRouter(rateLimiters));
   api.use('/users', createUserRouter(rateLimiters));
   api.use('/applications', createApplicationRouter());
+  api.use('/views', createViewRouter());
   app.use('/api', api);
 
   app.use(notFoundHandler);

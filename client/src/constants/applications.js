@@ -56,3 +56,21 @@ export const MIN_DATE = '2000-01-01';
 export function getOptionLabel(options, value) {
   return options.find((option) => option.value === value)?.label ?? '';
 }
+
+// Readable names for fields recorded in the activity timeline.
+export const ACTIVITY_FIELD_LABELS = {
+  company: 'company',
+  jobTitle: 'job title',
+  location: 'location',
+  jobUrl: 'job posting URL',
+  employmentType: 'employment type',
+  salaryRange: 'salary range',
+  source: 'source',
+  appliedDate: 'applied date',
+  deadline: 'deadline',
+  interviewDate: 'interview time',
+  'contact.name': 'contact name',
+  'contact.email': 'contact email',
+  'contact.phone': 'contact phone',
+  notes: 'notes',
+};

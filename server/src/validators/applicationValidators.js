@@ -155,3 +155,80 @@ export const statsQuerySchema = z.object({
 export const idParamsSchema = z.object({
   id: z.string().regex(/^[a-f\d]{24}$/i, 'Invalid application ID.'),
 });
+
+/** GET /applications/export: the list filters and sort, without paging. */
+export const exportQuerySchema = listQuerySchema.omit({ page: true, pageSize: true });
+
+/** GET /applications/analytics: optional applied-date range. */
+export const analyticsQuerySchema = z
+  .object({ from: optionalQueryDate, to: optionalQueryDate })
+  .refine((query) => !query.from || !query.to || query.from <= query.to, {
+    message: 'The start date must be on or before the end date.',
+    path: ['from'],
+  });
+
+const MAX_EVENT_RANGE_DAYS = 400;
+const requiredQueryDate = (label) =>
+  z
+    .string({ error: `${label} is required.` })
+    .trim()
+    .refine(isCalendarDate, `${label} must use the format YYYY-MM-DD.`);
+const requiredQueryInstant = (label) =>
+  z
+    .string({ error: `${label} is required.` })
+    .trim()
+    .refine(isIsoDateTime, `${label} must be an ISO 8601 date and time.`);
+
+/**
+ * GET /applications/events: the client's local date range, both as calendar dates
+ * (for deadlines) and as instants (for interview times), so time zones are exact.
+ */
+export const eventsQuerySchema = z
+  .object({
+    start: requiredQueryDate('start'),
+    end: requiredQueryDate('end'),
+    startAt: requiredQueryInstant('startAt'),
+    endAt: requiredQueryInstant('endAt'),
+  })
+  .superRefine((query, ctx) => {
+    if (query.end < query.start) ctx.addIssue({ code: 'custom', path: ['end'], message: 'end must be on or after start.' });
+    if (Date.parse(query.endAt) < Date.parse(query.startAt)) {
+      ctx.addIssue({ code: 'custom', path: ['endAt'], message: 'endAt must be on or after startAt.' });
+    }
+    const days = (Date.parse(`${query.end}T00:00:00Z`) - Date.parse(`${query.start}T00:00:00Z`)) / 86_400_000;
+    if (days > MAX_EVENT_RANGE_DAYS) {
+      ctx.addIssue({ code: 'custom', path: ['end'], message: `The range can be at most ${MAX_EVENT_RANGE_DAYS} days.` });
+    }
+  });
+
+// Saved views store filters as a normalized query string (no page number).
+const VIEW_QUERY_KEYS = ['q', 'status', 'location', 'from', 'to', 'sort', 'order', 'pageSize'];
+const VIEW_QUERY_DEFAULTS = { sort: 'createdAt', order: 'desc', pageSize: PAGE_SIZE_DEFAULT };
+
+/** Validates a list query string with the list endpoint's rules and returns it normalized. */
+export const savedViewSchema = z.object(
+  {
+    name: z
+      .string({ error: 'Name is required.' })
+      .trim()
+      .min(1, 'Name is required.')
+      .max(40, 'Name must be 40 characters or fewer.'),
+    query: z
+      .string({ error: 'Query must be text.' })
+      .max(1000, 'This view has too many filters to save.')
+      .transform((value, ctx) => {
+        const parsed = listQuerySchema.safeParse(Object.fromEntries(new URLSearchParams(value)));
+        if (!parsed.success) {
+          ctx.addIssue({ code: 'custom', message: 'These filters aren’t valid.' });
+          return z.NEVER;
+        }
+        const params = new URLSearchParams();
+        for (const key of VIEW_QUERY_KEYS) {
+          const item = parsed.data[key];
+          if (item !== '' && item !== VIEW_QUERY_DEFAULTS[key]) params.set(key, String(item));
+        }
+        return params.toString();
+      }),
+  },
+  { error: 'Request body must be a JSON object.' },
+);

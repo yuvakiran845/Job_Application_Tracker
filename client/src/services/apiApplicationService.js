@@ -34,3 +34,39 @@ export async function updateApplication(id, changes) {
 export async function deleteApplication(id) {
   await apiRequest(path(id), { method: 'DELETE' });
 }
+
+/** CSV of every application matching the list filters (no paging). Returns `{ blob, filename }`. */
+export async function exportApplications(query = {}) {
+  const { page: _page, pageSize: _pageSize, ...filters } = query;
+  return apiRequest('/applications/export', { query: filters, responseType: 'file' });
+}
+
+export async function getAnalytics({ from, to }) {
+  const { data } = await apiRequest('/applications/analytics', { query: { from, to } });
+  return data;
+}
+
+/** Interviews and deadlines in a local date range (see utils/calendar.js for the range shape). */
+export async function listEvents(range) {
+  const { data } = await apiRequest('/applications/events', { query: range });
+  return data;
+}
+
+export async function listActivity(id) {
+  const { data } = await apiRequest(`${path(id)}/activity`);
+  return data;
+}
+
+export async function listViews() {
+  const { data } = await apiRequest('/views');
+  return data;
+}
+
+export async function createView({ name, query }) {
+  const { data } = await apiRequest('/views', { method: 'POST', body: { name, query } });
+  return data;
+}
+
+export async function deleteView(id) {
+  await apiRequest(`/views/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}

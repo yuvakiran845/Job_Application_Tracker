@@ -1,16 +1,19 @@
 import { useEffect } from 'react';
-import { FilterX, Inbox, LoaderCircle, Plus, SearchX } from 'lucide-react';
+import { Download, FilterX, Inbox, LoaderCircle, Plus, SearchX } from 'lucide-react';
 import { ApplicationFilters } from '../components/applications/ApplicationFilters';
 import { ApplicationsTable, ApplicationsTableSkeleton } from '../components/applications/ApplicationsTable';
 import { LoadErrorAlert } from '../components/applications/LoadErrorAlert';
+import { SavedViewsBar } from '../components/applications/SavedViewsBar';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Pagination } from '../components/ui/Pagination';
 import { useApplicationActions } from '../hooks/useApplicationActions';
-import { useApplicationList, useApplicationStats } from '../hooks/useApplicationData';
+import { useApplicationList, useApplicationStats, useExportApplications } from '../hooks/useApplicationData';
 import { useApplicationQuery } from '../hooks/useApplicationQuery';
-import { PAGE_SIZES, countActiveFilters, getPageRange } from '../utils/applicationQuery';
+import { useToast } from '../hooks/useToast';
+import { PAGE_SIZES, countActiveFilters, getPageRange, toSearchParams } from '../utils/applicationQuery';
+import { downloadFile } from '../utils/download';
 import { pluralize } from '../utils/format';
 
 export default function ApplicationsPage() {
@@ -21,6 +24,25 @@ export default function ApplicationsPage() {
   // The overall total (without filters) comes from the dashboard stats.
   const statsQuery = useApplicationStats();
   const activeFilterCount = countActiveFilters(query);
+  const exportMutation = useExportApplications();
+  const { toast } = useToast();
+
+  // The current filters as a saved-view query string (no page number).
+  const viewParams = toSearchParams(query);
+  viewParams.delete('page');
+  const viewQueryString = viewParams.toString();
+
+  async function handleExport() {
+    try {
+      downloadFile(await exportMutation.mutateAsync(query));
+      toast({
+        title: 'Export ready',
+        description: activeFilterCount > 0 ? 'Your filtered applications were downloaded as CSV.' : 'All your applications were downloaded as CSV.',
+      });
+    } catch (error) {
+      if (error?.status !== 401) toast({ variant: 'error', title: 'Couldn’t export', description: error.message });
+    }
+  }
 
   const result = listQuery.data;
   const overallTotal = statsQuery.data?.total;
@@ -132,15 +154,25 @@ export default function ApplicationsPage() {
           </span>
         }
         action={
-          activeFilterCount > 0 && (
-            <Button variant="ghost" size="sm" icon={FilterX} onClick={clearFilters} className="-mr-2">
-              Clear filters
-            </Button>
-          )
+          <div className="-mr-2 flex flex-wrap items-center gap-1">
+            {activeFilterCount > 0 && (
+              <Button variant="ghost" size="sm" icon={FilterX} onClick={clearFilters}>
+                Clear filters
+              </Button>
+            )}
+            {!loading && matching > 0 && (
+              <Button variant="secondary" size="sm" icon={Download} loading={exportMutation.isPending} onClick={handleExport}>
+                Export CSV
+              </Button>
+            )}
+          </div>
         }
       />
       {!hasNoApplications && (
-        <ApplicationFilters query={query} onChange={updateQuery} activeFilterCount={activeFilterCount} />
+        <>
+          <ApplicationFilters query={query} onChange={updateQuery} activeFilterCount={activeFilterCount} />
+          <SavedViewsBar queryString={viewQueryString} canSave={viewQueryString !== ''} />
+        </>
       )}
       {content}
     </Card>

@@ -60,6 +60,7 @@ applicationSchema.index({ userId: 1, createdAt: -1 });
 applicationSchema.index({ userId: 1, status: 1 });
 applicationSchema.index({ userId: 1, appliedDate: -1 });
 applicationSchema.index({ userId: 1, deadline: 1 });
+applicationSchema.index({ userId: 1, interviewDate: 1 });
 
 export const Application = mongoose.model('Application', applicationSchema);
 

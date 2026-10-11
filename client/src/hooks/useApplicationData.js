@@ -14,14 +14,22 @@ export const applicationKeys = {
   list: (query) => ['applications', 'list', query],
   stats: (appliedSince) => ['applications', 'stats', appliedSince],
   detail: (id) => ['applications', 'detail', id],
+  analytics: (range) => ['applications', 'analytics', range],
+  events: (range) => ['applications', 'events', range],
+  activity: (id) => ['applications', 'activity', id],
 };
 
-/** Refetch everything derived from the collection (lists and dashboard numbers). */
+export const viewKeys = { all: ['views'] };
+
+/**
+ * Refetch everything derived from the collection: lists, dashboard numbers,
+ * analytics, calendar events and activity. Details are updated directly instead.
+ */
 function invalidateCollection(queryClient) {
-  return Promise.all([
-    queryClient.invalidateQueries({ queryKey: applicationKeys.lists() }),
-    queryClient.invalidateQueries({ queryKey: ['applications', 'stats'] }),
-  ]);
+  return queryClient.invalidateQueries({
+    queryKey: applicationKeys.all,
+    predicate: (query) => query.queryKey[1] !== 'detail',
+  });
 }
 
 /** One page of applications for a search/filter/sort query. Keeps the previous page visible while loading. */
@@ -83,9 +91,15 @@ export function useUpdateApplication() {
   });
 }
 
+/** A list query's status filter, if any (e.g. one Kanban column). */
+function listStatus(queryKey) {
+  return queryKey[2]?.status || '';
+}
+
 /**
  * Status changes are shown immediately in every cached list and detail view, then
- * confirmed by the server. If the save fails, every view is restored.
+ * confirmed by the server. In lists filtered by status (Kanban columns) the item
+ * moves to the matching list. If the save fails, every view is restored.
  */
 export function useOptimisticUpdate() {
   const queryClient = useQueryClient();
@@ -95,12 +109,27 @@ export function useOptimisticUpdate() {
       await queryClient.cancelQueries({ queryKey: applicationKeys.all });
       const previousLists = queryClient.getQueriesData({ queryKey: applicationKeys.lists() });
       const previousDetail = queryClient.getQueryData(applicationKeys.detail(id));
-      const apply = (item) => (item.id === id ? { ...item, ...changes } : item);
 
-      queryClient.setQueriesData({ queryKey: applicationKeys.lists() }, (data) =>
-        data ? { ...data, items: data.items.map(apply) } : data,
-      );
-      if (previousDetail) queryClient.setQueryData(applicationKeys.detail(id), apply(previousDetail));
+      const original =
+        previousDetail ??
+        previousLists.flatMap(([, data]) => data?.items ?? []).find((item) => item.id === id);
+      const updated = original ? { ...original, ...changes } : null;
+
+      for (const [key, data] of previousLists) {
+        if (!data || !updated) continue;
+        const status = listStatus(key);
+        const without = data.items.filter((item) => item.id !== id);
+        const contains = without.length !== data.items.length;
+        let items;
+        if (!status) items = data.items.map((item) => (item.id === id ? updated : item));
+        else if (status === updated.status) items = contains ? data.items.map((item) => (item.id === id ? updated : item)) : [updated, ...data.items];
+        else items = without;
+        if (items !== data.items) {
+          const delta = items.length - data.items.length;
+          queryClient.setQueryData(key, { ...data, items, meta: { ...data.meta, total: data.meta.total + delta } });
+        }
+      }
+      if (previousDetail) queryClient.setQueryData(applicationKeys.detail(id), updated);
       return { previousLists, previousDetail };
     },
     onError: (_error, { id }, context) => {
@@ -128,6 +157,71 @@ export function useResetSampleData() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => applicationService.resetSampleData(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: applicationKeys.all }),
+    onSuccess: () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: applicationKeys.all }),
+      queryClient.invalidateQueries({ queryKey: viewKeys.all }),
+    ]),
+  });
+}
+
+// ---- Level 7 features --------------------------------------------------------
+
+export const PIPELINE_COLUMN_LIMIT = 100;
+
+/** One Kanban column: up to 100 applications in a status, newest first. */
+export function useApplicationsByStatus(status) {
+  const query = { ...DEFAULT_QUERY, status, sort: 'createdAt', order: 'desc', pageSize: PIPELINE_COLUMN_LIMIT };
+  return useQuery({
+    queryKey: applicationKeys.list(query),
+    queryFn: () => applicationService.listApplications(query),
+  });
+}
+
+export function useAnalytics(range) {
+  return useQuery({
+    queryKey: applicationKeys.analytics(range),
+    queryFn: () => applicationService.getAnalytics(range),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** `range` comes from utils/calendar.js toEventRange(). */
+export function useEvents(range) {
+  return useQuery({
+    queryKey: applicationKeys.events(range),
+    queryFn: () => applicationService.listEvents(range),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useActivity(id) {
+  return useQuery({
+    queryKey: applicationKeys.activity(id),
+    queryFn: () => applicationService.listActivity(id),
+  });
+}
+
+/** Downloads a CSV of the applications matching `query`. */
+export function useExportApplications() {
+  return useMutation({ mutationFn: (query) => applicationService.exportApplications(query) });
+}
+
+export function useSavedViews() {
+  return useQuery({ queryKey: viewKeys.all, queryFn: () => applicationService.listViews() });
+}
+
+export function useCreateView() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (view) => applicationService.createView(view),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: viewKeys.all }),
+  });
+}
+
+export function useDeleteView() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => applicationService.deleteView(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: viewKeys.all }),
   });
 }

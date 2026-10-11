@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, ExternalLink, FileQuestion, Mail, Pencil, Phone, Trash2 } from 'lucide-react';
+import { ActivityTimeline } from '../components/applications/ActivityTimeline';
 import { CompanyAvatar } from '../components/applications/CompanyAvatar';
 import { LoadErrorAlert } from '../components/applications/LoadErrorAlert';
 import { StatusSelect } from '../components/applications/StatusSelect';
@@ -255,6 +256,8 @@ export default function ApplicationDetailsPage() {
               </DetailItem>
             </dl>
           </Card>
+
+          <ActivityTimeline applicationId={application.id} />
         </div>
       </div>
     </div>

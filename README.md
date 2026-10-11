@@ -2,7 +2,7 @@
 
 CareerFlow is a job application tracker for students and job seekers. It keeps every application, interview, deadline, and recruitment update in one place.
 
-> **Status: Level 6 of 9: full stack connected.** Every screen reads and writes your own data through the API, with sign-in, server-side search and pagination, and a cache that stays in sync after every change. Sample data is now only an explicit development option (`VITE_DATA_SOURCE=mock`), and production builds never include it.
+> **Status: Level 7 of 9: advanced features.** On top of the connected full stack, CareerFlow adds a Kanban pipeline, analytics, a calendar and agenda, an activity timeline, CSV export, and saved views. Everything is computed from the signed-in user's own records. Sample data is only an explicit development option (`VITE_DATA_SOURCE=mock`), and production builds never include it.
 
 ## Features so far
 
@@ -16,6 +16,12 @@ CareerFlow is a job application tracker for students and job seekers. It keeps e
 - **Add, view, edit, and delete** applications. Deleting asks for confirmation.
 - **Inline status changes** from any list or the details page. The change shows immediately and is undone if saving fails. Moving a saved job to a submitted status records today as the applied date.
 - **Accounts:** sign up, sign in, and sign out, with protected pages that return you to where you were after signing in. **Account settings** let you change your name, your email (requires your current password), and your password (signs out your other devices).
+- **Pipeline (Kanban):** one column per status. Drag a card to change its status, or use the status menu on each card, which is the keyboard and touch alternative. Moves show immediately and roll back if saving fails.
+- **Analytics:** submitted applications, response, interview, and offer rates (with written definitions), applications over time (with a table view), status breakdown, and sources. Choose the last 30 or 90 days, the last 12 months, all time, or custom dates.
+- **Calendar & agenda:** a month grid with keyboard navigation, a 30-day agenda, and an "Upcoming" card on the dashboard. Interview times show in your time zone; deadlines are labelled by stage ("Assessment due", "Offer response due", …).
+- **Activity timeline:** creation, status changes, and edited fields are recorded on each application from now on. Field values are never logged, and history isn't invented for older records.
+- **CSV export** of the current search and filters, with spreadsheet-safe escaping.
+- **Saved views:** name and re-apply sets of filters, stored per account.
 - **Full application record:** company, title, location, job URL, employment type, salary range, source, applied date, deadline, interview date and time, recruiter contact, notes, and created/updated timestamps.
 
 ## Tech stack
@@ -97,7 +103,10 @@ client/
       layout/        Sidebar, mobile drawer, top bar, profile menu
       auth/          Route guards (RequireAuth, GuestOnly)
       applications/  Table, filters, form, status select, row actions menu
-      dashboard/     Stat cards, status breakdown
+      dashboard/     Stat cards, status breakdown, upcoming events
+      pipeline/      Kanban columns and draggable cards
+      calendar/      Month grid, event rows
+      analytics/     Over-time chart (Recharts), source breakdown
     layouts/         AppLayout (signed-in shell), AuthLayout (sign-in pages)
     pages/           Sign in, Create account, Dashboard, Applications, Application details, Account, Not found (+ tests)
     context/         AuthProvider (session, cache reset), ApplicationActionsProvider (dialogs), ToastProvider
@@ -113,7 +122,7 @@ server/
     server.js        Entry point: validate config → connect DB → listen → graceful shutdown
     app.js           createApp(): middleware, routes, error handling (no DB/port, so tests can use it)
     config/          env.js (validated with zod, fails fast), database.js
-    models/          User (unique email, bcrypt hash, tokenVersion), Application (owner reference, indexes)
+    models/          User, Application (owner reference, indexes), Activity (timeline), SavedView
     validators/      zod schemas for request bodies, query strings and route params
     middleware/      requireAuth, CSRF, rate limits, validate, request logger, 404 + central error handler
     controllers/     HTTP ⇄ service translation
@@ -157,6 +166,10 @@ The sample-data service mirrors the API exactly (filtering via `utils/applicatio
 - **Menus** render in a portal with fixed positioning, so scrolling tables can't clip them. They follow the WAI-ARIA menu-button pattern: arrow keys, Home/End, Escape, and focus return.
 - **Text filters** update the URL after a 300 ms pause, so typing stays responsive and the browser history isn't flooded.
 - **Validation runs in layers.** Client-side checks exist for user experience. The API validates every request with zod, which strips unknown fields, so a client can never set `userId`, `_id`, or timestamps. The Mongoose schema enforces the same rules again before saving.
+- **Activity recording is best-effort.** It's written after the change succeeds, and a failed history write is logged rather than failing your save, because MongoDB transactions need a replica set that local and free-tier setups may not have. Only field *names* are recorded, so notes and contact details never enter the log.
+- **Analytics definitions:** *Submitted* = applications with an applied date in the range. Response, interview, and offer rates divide by Submitted and use each application's current status, so an application rejected after an interview counts as Rejected. History-based rates would need activity data that older records don't have. The same calculation runs on the server and in the sample-data service.
+- **CSV safety:** RFC 4180 quoting (commas, quotes, newlines), CRLF line endings, a UTF-8 byte-order mark for Excel, and cells starting with `=`, `+`, `-`, `@`, tab, or CR prefixed with `'` so spreadsheets don't run them as formulas (CSV injection).
+- **Time zones in the calendar:** the client sends its local day range both as calendar dates (deadlines have no time) and as UTC instants (interviews do), so every event lands on the right local day.
 - **Indexes:** every index starts with `userId` (`{userId, createdAt}`, `{userId, status}`, `{userId, appliedDate}`, `{userId, deadline}`), because every query is scoped by owner. Tests run MongoDB's `explain()` on the real list and stats queries and fail on a collection scan. Case-insensitive collation is applied only when sorting by company, because string comparisons can use an index only when the collations match.
 - **One service contract:** `apiApplicationService.js` and `mockApplicationService.js` share function signatures, response shapes (`{ items, meta }`), and error types (`ValidationError`, `NotFoundError`, `ApiError`), so the UI doesn't know which one is active.
 - **Retries:** queries retry only transient failures (network errors, timeouts, 5xx), at most twice. Writes are never retried automatically, to avoid duplicates. Submit buttons lock while saving.
@@ -213,7 +226,14 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
 | GET | `/applications/stats` | 200 | Counts by status, plus `appliedSince` (optional query `appliedSince=YYYY-MM-DD`; default is the last 30 days). |
 | GET | `/applications/:id` | 200 | |
 | PUT | `/applications/:id` | 200 | Any subset of fields. The merged record is validated as a whole. |
-| DELETE | `/applications/:id` | 204 | |
+| DELETE | `/applications/:id` | 204 | Also deletes its activity history. |
+| GET | `/applications/:id/activity` | 200 | Timeline entries, newest first: `created`, `status_changed` (`fromStatus`, `toStatus`), `updated` (`fields`: names only). |
+| GET | `/applications/export` | 200 | CSV (`text/csv`, attachment, `Cache-Control: no-store`) of every application matching the list filters and sort; at most 5,000 rows. |
+| GET | `/applications/analytics` | 200 | Query: `from`, `to` (applied dates, optional). Returns totals, rates (`null` when nothing was submitted), `byStatus`, `bySource`, and zero-filled `overTime` buckets (week, month, or year by range length). |
+| GET | `/applications/events` | 200 | Query: `start`, `end` (local calendar dates, for deadlines) and `startAt`, `endAt` (UTC instants, for interviews); range of at most 400 days. |
+| GET | `/views` | 200 | The user's saved views. |
+| POST | `/views` | 201 | `{ name, query }`. The query is validated with the list rules and stored normalized. Names are unique per user (ignoring case), with up to 20 views (409 `VIEW_NAME_TAKEN` / `VIEW_LIMIT`). |
+| DELETE | `/views/:id` | 204 | |
 
 | Status | Code | When |
 | --- | --- | --- |
@@ -261,7 +281,7 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
 | 4 | MongoDB Atlas integration | ✅ Implemented and verified (local MongoDB 8.2; Atlas guide above) |
 | 5 | Authentication and security | ✅ Implemented and verified |
 | 6 | Connect frontend to API | ✅ Implemented and verified |
-| 7 | Kanban, analytics, calendar, activity, CSV export | ⬜ Not started |
+| 7 | Kanban, analytics, calendar, activity, CSV export, saved views | ✅ Implemented and verified |
 | 8 | Testing, accessibility, and polish | ⬜ Not started |
 | 9 | Deployment and documentation | ⬜ Not started |
 
@@ -315,13 +335,36 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
   - No horizontal scrolling at phone width.
   - This run found a stale total ("5 of 0 applications"), which is now fixed and covered by a test.
 
+**Level 7 verification:**
+- **Server:** `npm test` (100 passing; 18 new):
+  - Activity: recorded names only, private to the owner, deleted with the application, none invented.
+  - CSV: escaping, formula neutralization, filters, ownership.
+  - Analytics: definitions, week/month/year buckets, range validation, ownership.
+  - Events: local-day boundaries across time zones, validation, ownership.
+  - Saved views: normalization, duplicate names, the 20-view limit, privacy.
+- **Client:** `npm test` (143 passing; 18 new):
+  - Kanban moves via the status menu and via drag-and-drop.
+  - Calendar agenda labels and keyboard navigation.
+  - Exact analytics numbers for two ranges, plus the table view.
+  - Activity timeline, CSV download contents, saving and re-applying a view, the dashboard's upcoming card.
+  - Calendar and analytics helpers.
+- **End-to-end** in the browser against the real API and local MongoDB:
+  - A real `DragEvent` drag moved a card; the column highlighted and the server confirmed the change.
+  - The timeline showed only the recorded change.
+  - Calendar events landed on the correct local days in GMT+5:30, with stage labels.
+  - Analytics numbers matched the data, and the chart chunk loaded only on that page.
+  - The CSV export had the right headers, rows, and byte-order mark.
+  - A saved view persisted in normalized form.
+  - No horizontal overflow on any page at phone width. This run caught screen-reader-only text widening the page from inside the Kanban scroller, which is now fixed.
+
 ## Known limitations
 
 - Verified against a local MongoDB 8.2. Connecting to Atlas needs your own cluster and credentials (see *MongoDB Atlas setup*).
 - Password reset by email isn't included, because email integrations are out of scope. Account deletion isn't implemented yet.
 - Changes made on another device appear when a screen is reopened or the browser tab regains focus. There's no live push.
-- Saved filter views are deferred to Level 7, where they can be stored per user. For now, bookmark the URL, which already contains the filters.
 - Search covers company and job title only; location has its own filter.
-- The status history and activity timeline are planned for Level 7. Only `createdAt` and `updatedAt` are tracked today.
-- Pipeline, Calendar, and Analytics are shown in the sidebar as "Coming soon" and are not clickable.
+- Activity history starts when this feature was added; older changes aren't shown. Activity writes are best-effort without database transactions.
+- Analytics rates use current status, not full history (see the definitions above).
+- Each Kanban column shows up to 100 applications, with a link to the full filtered list beyond that.
+- Not implemented (optional in the spec): dark mode, follow-up reminders, and AI resume matching (which needs a configured AI provider).
 - Sample-data mode (development only) has no sign-in: it uses a clearly labelled guest.

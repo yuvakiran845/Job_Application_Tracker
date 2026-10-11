@@ -4,6 +4,7 @@ import { ApplicationsTable, ApplicationsTableSkeleton } from '../components/appl
 import { LoadErrorAlert } from '../components/applications/LoadErrorAlert';
 import { StatCard, StatCardSkeleton } from '../components/dashboard/StatCard';
 import { StatusBreakdown } from '../components/dashboard/StatusBreakdown';
+import { UpcomingCard } from '../components/dashboard/UpcomingCard';
 import { Button, ButtonLink } from '../components/ui/Button';
 import { Card, CardHeader } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -107,7 +108,10 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          <StatusBreakdown byStatus={stats?.byStatus} total={stats?.total ?? 0} loading={loading} />
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+            <StatusBreakdown byStatus={stats?.byStatus} total={stats?.total ?? 0} loading={loading} />
+            <UpcomingCard />
+          </div>
         </>
       )}
 

@@ -8,13 +8,20 @@ const SAFE_METHODS = new Set(['GET', 'HEAD']);
 /** Fired on window when a signed-in request is rejected because the session ended. */
 export const SESSION_EXPIRED_EVENT = 'careerflow:session-expired';
 
+/** Filename from a `Content-Disposition: attachment; filename="…"` header. */
+function getFilename(response, fallback) {
+  const match = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') ?? '');
+  return match?.[1] ?? fallback;
+}
+
 /**
  * The single place the frontend talks HTTP. Sends and parses JSON, includes the
  * HttpOnly session cookie, adds the CSRF header the API requires on writes,
  * applies a timeout, and converts the API's `{ error: { code, message, details } }`
- * responses into the data-layer error classes.
+ * responses into the data-layer error classes. `responseType: 'file'` returns
+ * `{ blob, filename }` for downloads (e.g. CSV export) instead of parsed JSON.
  */
-export async function apiRequest(path, { method = 'GET', body, query } = {}) {
+export async function apiRequest(path, { method = 'GET', body, query, responseType = 'json' } = {}) {
   const url = new URL(`${API_BASE_URL}${path}`, window.location.origin);
   for (const [key, value] of Object.entries(query ?? {})) {
     if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
@@ -48,6 +55,9 @@ export async function apiRequest(path, { method = 'GET', body, query } = {}) {
   }
 
   if (response.status === 204) return null;
+  if (response.ok && responseType === 'file') {
+    return { blob: await response.blob(), filename: getFilename(response, 'download') };
+  }
   const payload = await response.json().catch(() => null);
   if (response.ok) return payload;
 

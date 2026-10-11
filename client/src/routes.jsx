@@ -4,9 +4,11 @@ import { AuthLayout } from './layouts/AuthLayout';
 import AccountPage from './pages/AccountPage';
 import ApplicationDetailsPage from './pages/ApplicationDetailsPage';
 import ApplicationsPage from './pages/ApplicationsPage';
+import CalendarPage from './pages/CalendarPage';
 import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
+import PipelinePage from './pages/PipelinePage';
 import RegisterPage from './pages/RegisterPage';
 import RouteErrorPage from './pages/RouteErrorPage';
 
@@ -41,6 +43,14 @@ export const routes = [
             path: 'applications/:applicationId',
             element: <ApplicationDetailsPage />,
             handle: { title: 'Application details' },
+          },
+          { path: 'pipeline', element: <PipelinePage />, handle: { title: 'Pipeline' } },
+          { path: 'calendar', element: <CalendarPage />, handle: { title: 'Calendar' } },
+          {
+            path: 'analytics',
+            // Loaded on demand so the charting library isn't part of the main bundle.
+            lazy: async () => ({ Component: (await import('./pages/AnalyticsPage')).default }),
+            handle: { title: 'Analytics' },
           },
           { path: 'account', element: <AccountPage />, handle: { title: 'Account' } },
           { path: '*', element: <NotFoundPage />, handle: { title: 'Page not found' } },

@@ -5,6 +5,14 @@ afterEach(() => {
   cleanup();
 });
 
+// jsdom has no ResizeObserver (used by Recharts' ResponsiveContainer). Charts render
+// at zero size in tests, so tests assert on the table views instead.
+window.ResizeObserver ??= class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 // jsdom does not implement scrolling (used by React Router's <ScrollRestoration />).
 window.scrollTo = () => {};
 

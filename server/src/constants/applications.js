@@ -28,3 +28,33 @@ export const MIN_DATE = '2000-01-01';
 
 export const PAGE_SIZE_DEFAULT = 10;
 export const PAGE_SIZE_MAX = 100;
+
+// Human-readable labels, used in CSV exports.
+export const STATUS_LABELS = {
+  saved: 'Saved',
+  applied: 'Applied',
+  assessment: 'Assessment',
+  interview: 'Interview',
+  offer: 'Offer',
+  rejected: 'Rejected',
+  withdrawn: 'Withdrawn',
+};
+
+export const EMPLOYMENT_TYPE_LABELS = {
+  'full-time': 'Full-time',
+  'part-time': 'Part-time',
+  internship: 'Internship',
+  contract: 'Contract',
+  temporary: 'Temporary',
+  freelance: 'Freelance',
+};
+
+export const SOURCE_LABELS = {
+  linkedin: 'LinkedIn',
+  'company-website': 'Company website',
+  referral: 'Referral',
+  'job-board': 'Job board',
+  campus: 'Campus placement',
+  recruiter: 'Recruiter outreach',
+  other: 'Other',
+};

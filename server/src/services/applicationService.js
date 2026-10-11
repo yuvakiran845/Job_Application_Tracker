@@ -1,8 +1,10 @@
 import mongoose from 'mongoose';
 import { STATUSES_REQUIRING_APPLIED_DATE, STATUS_VALUES } from '../constants/applications.js';
+import { Activity, serializeActivity } from '../models/Activity.js';
 import { Application, serializeApplication } from '../models/Application.js';
 import { utcDateString } from '../utils/dates.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
+import { logger } from '../utils/logger.js';
 import { escapeRegex, normalizeText } from '../utils/text.js';
 
 // Every function takes the owner's id from the authenticated request and includes
@@ -12,7 +14,28 @@ import { escapeRegex, normalizeText } from '../utils/text.js';
 // Case-insensitive, numeric-aware ordering for company names ("Company 9" < "Company 10").
 const COMPANY_COLLATION = { locale: 'en', strength: 2, numericOrdering: true };
 
-function ownerId(userId) {
+// Upper bound for a single CSV export.
+export const EXPORT_LIMIT = 5000;
+
+// Fields whose edits are recorded in the activity timeline (names only, never values).
+const TRACKED_FIELDS = [
+  'company',
+  'jobTitle',
+  'location',
+  'jobUrl',
+  'employmentType',
+  'salaryRange',
+  'source',
+  'appliedDate',
+  'deadline',
+  'interviewDate',
+  'contact.name',
+  'contact.email',
+  'contact.phone',
+  'notes',
+];
+
+export function ownerId(userId) {
   return new mongoose.Types.ObjectId(userId);
 }
 
@@ -38,12 +61,20 @@ async function findOwned(userId, id) {
 }
 
 /**
- * Aggregation pipeline (and collation) for the list endpoint. Exported so tests
- * can check with explain() that it is served by an index.
+ * Records timeline entries. Best effort: a failed history write is logged but never
+ * undoes or fails the user's actual change (MongoDB transactions need a replica set,
+ * which local and free-tier setups may not have).
  */
-export function buildListQuery(userId, query) {
-  const { q, status, location, from, to, sort, order, page, pageSize } = query;
+async function recordActivity(entries) {
+  if (entries.length === 0) return;
+  try {
+    await Activity.insertMany(entries);
+  } catch (error) {
+    logger.error('Failed to record activity', { name: error.name });
+  }
+}
 
+function buildMatch(userId, { q, status, location, from, to }) {
   const match = { userId: ownerId(userId) };
   if (status) match.status = status;
   if (q) match.searchText = { $regex: escapeRegex(normalizeText(q)) };
@@ -54,13 +85,14 @@ export function buildListQuery(userId, query) {
     if (from) match.appliedDate.$gte = from;
     if (to) match.appliedDate.$lte = to;
   }
+  return match;
+}
 
+function buildSortStages(sort, order) {
   const direction = order === 'asc' ? 1 : -1;
   const sortKey = sort === 'status' ? 'statusRank' : sort;
   const sortByDate = sort === 'appliedDate' || sort === 'deadline';
-
-  const pipeline = [
-    { $match: match },
+  return [
     {
       $addFields: {
         // Empty dates sort last in both directions; statuses sort in pipeline order.
@@ -69,6 +101,31 @@ export function buildListQuery(userId, query) {
       },
     },
     { $sort: { sortIsEmpty: 1, [sortKey]: direction, createdAt: -1, _id: -1 } },
+  ];
+}
+
+// Collation only when needed: string comparisons can use an index only if the index
+// has the same collation, so applying it everywhere would stop the { userId, status }
+// index from serving status filters.
+function collationFor(sort) {
+  return sort === 'company' ? COMPANY_COLLATION : undefined;
+}
+
+async function runAggregate(pipeline, collation) {
+  const aggregate = Application.aggregate(pipeline);
+  if (collation) aggregate.collation(collation);
+  return aggregate;
+}
+
+/**
+ * Aggregation pipeline (and collation) for the list endpoint. Exported so tests
+ * can check with explain() that it is served by an index.
+ */
+export function buildListQuery(userId, query) {
+  const { page, pageSize } = query;
+  const pipeline = [
+    { $match: buildMatch(userId, query) },
+    ...buildSortStages(query.sort, query.order),
     {
       $facet: {
         items: [{ $skip: (page - 1) * pageSize }, { $limit: pageSize }],
@@ -76,18 +133,12 @@ export function buildListQuery(userId, query) {
       },
     },
   ];
-
-  // Collation only when needed: string comparisons can use an index only if the
-  // index has the same collation, so applying it everywhere would stop the
-  // { userId, status } index from serving status filters.
-  return { pipeline, collation: sort === 'company' ? COMPANY_COLLATION : undefined };
+  return { pipeline, collation: collationFor(query.sort) };
 }
 
 export async function listApplications(userId, query) {
   const { pipeline, collation } = buildListQuery(userId, query);
-  const aggregate = Application.aggregate(pipeline);
-  if (collation) aggregate.collation(collation);
-  const [result] = await aggregate;
+  const [result] = await runAggregate(pipeline, collation);
 
   const total = result.total[0]?.count ?? 0;
   const { page, pageSize } = query;
@@ -97,6 +148,17 @@ export async function listApplications(userId, query) {
   };
 }
 
+/** Every application matching the list filters, in list order (for CSV export). */
+export async function exportApplications(userId, query) {
+  const pipeline = [
+    { $match: buildMatch(userId, query) },
+    ...buildSortStages(query.sort, query.order),
+    { $limit: EXPORT_LIMIT },
+  ];
+  const documents = await runAggregate(pipeline, collationFor(query.sort));
+  return documents.map(serializeApplication);
+}
+
 export async function getApplication(userId, id) {
   return serializeApplication(await findOwned(userId, id));
 }
@@ -104,12 +166,16 @@ export async function getApplication(userId, id) {
 export async function createApplication(userId, input) {
   assertBusinessRules({ status: input.status, appliedDate: input.appliedDate ?? '' });
   const application = await Application.create({ ...input, userId: ownerId(userId) });
+  await recordActivity([
+    { userId: application.userId, applicationId: application._id, type: 'created', toStatus: application.status },
+  ]);
   return serializeApplication(application);
 }
 
 /** Applies any subset of fields, then validates the record as a whole before saving. */
 export async function updateApplication(userId, id, changes) {
   const application = await findOwned(userId, id);
+  const previousStatus = application.status;
   const { contact, ...fields } = changes;
 
   application.set(fields);
@@ -119,13 +185,35 @@ export async function updateApplication(userId, id, changes) {
   }
 
   assertBusinessRules({ status: application.status, appliedDate: application.appliedDate });
+  // Mongoose only marks paths whose value actually changed.
+  const changedFields = TRACKED_FIELDS.filter((path) => application.isModified(path));
+  const statusChanged = application.status !== previousStatus;
   await application.save();
+
+  const base = { userId: application.userId, applicationId: application._id };
+  await recordActivity([
+    ...(statusChanged ? [{ ...base, type: 'status_changed', fromStatus: previousStatus, toStatus: application.status }] : []),
+    ...(changedFields.length > 0 ? [{ ...base, type: 'updated', fields: changedFields }] : []),
+  ]);
   return serializeApplication(application);
 }
 
 export async function deleteApplication(userId, id) {
-  const { deletedCount } = await Application.deleteOne({ _id: id, userId: ownerId(userId) });
+  const owner = ownerId(userId);
+  const { deletedCount } = await Application.deleteOne({ _id: id, userId: owner });
   if (deletedCount === 0) throw new NotFoundError();
+  // The history goes with the application.
+  await Activity.deleteMany({ userId: owner, applicationId: id });
+}
+
+/** Timeline for one application, newest first. */
+export async function listActivity(userId, id, { limit = 100 } = {}) {
+  const application = await findOwned(userId, id);
+  const activities = await Activity.find({ userId: application.userId, applicationId: application._id })
+    .sort({ createdAt: -1, _id: -1 })
+    .limit(limit)
+    .lean();
+  return activities.map(serializeActivity);
 }
 
 /**
@@ -160,4 +248,38 @@ export async function getApplicationStats(userId, { appliedSince }) {
     rejections: byStatus.rejected,
     appliedSince: { from: since, count: result.appliedSince[0]?.count ?? 0 },
   };
+}
+
+/**
+ * Interviews (moments in time) between `startAt` and `endAt`, and deadlines
+ * (calendar dates) between `start` and `end`. The client sends both forms of its
+ * local date range so time zones are handled correctly.
+ */
+export async function listEvents(userId, { start, end, startAt, endAt }) {
+  const owner = ownerId(userId);
+  const fields = 'company jobTitle status deadline interviewDate';
+  const [interviews, deadlines] = await Promise.all([
+    Application.find({ userId: owner, interviewDate: { $gte: new Date(startAt), $lte: new Date(endAt) } })
+      .select(fields)
+      .lean(),
+    Application.find({ userId: owner, deadline: { $gte: start, $lte: end } })
+      .select(fields)
+      .lean(),
+  ]);
+
+  const summary = (doc) => ({ id: String(doc._id), company: doc.company, jobTitle: doc.jobTitle, status: doc.status });
+  return [
+    ...interviews.map((doc) => ({
+      id: `${doc._id}:interview`,
+      type: 'interview',
+      at: doc.interviewDate.toISOString(),
+      application: summary(doc),
+    })),
+    ...deadlines.map((doc) => ({
+      id: `${doc._id}:deadline`,
+      type: 'deadline',
+      date: doc.deadline,
+      application: summary(doc),
+    })),
+  ];
 }
