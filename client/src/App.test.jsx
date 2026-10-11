@@ -1,25 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { createMemoryRouter } from 'react-router';
-import App from './App';
+import { screen, waitFor, within } from '@testing-library/react';
 import { buildSampleApplications } from './data/sampleApplications';
-import { routes } from './routes';
 import { resetSampleData } from './services/applicationService';
+import { getRows, getStatValue, renderApp } from './test/renderApp';
 
 const SAMPLE = buildSampleApplications();
 const countStatus = (status) => SAMPLE.filter((application) => application.status === status).length;
-
-function renderApp(path = '/') {
-  const router = createMemoryRouter(routes, { initialEntries: [path] });
-  render(<App router={router} />);
-  return router;
-}
-
-async function getStatValue(label) {
-  const card = await screen.findByRole('group', { name: label });
-  return within(card).getByText(/^\d+$/).textContent;
-}
+const RECENT = 'Recently added applications';
 
 beforeEach(async () => {
   await resetSampleData();
@@ -36,15 +23,13 @@ describe('dashboard', () => {
   });
 
   it('navigates to the applications page from the sidebar', async () => {
-    const user = userEvent.setup();
-    const router = renderApp();
+    const { router, user } = renderApp();
     await user.click(screen.getByRole('link', { name: 'Applications' }));
 
     expect(router.state.location.pathname).toBe('/applications');
     expect(screen.getByRole('heading', { level: 1, name: 'Applications' })).toBeTruthy();
-    const table = await screen.findByRole('table', { name: 'All applications' });
-    // One header row plus one row per application.
-    expect(within(table).getAllByRole('row')).toHaveLength(SAMPLE.length + 1);
+    await screen.findByRole('table', { name: 'All applications' });
+    expect(getRows('All applications')).toHaveLength(10); // first page
   });
 
   it('shows a not-found page for unknown routes', () => {
@@ -56,9 +41,8 @@ describe('dashboard', () => {
 
 describe('add application', () => {
   it('validates input, then adds the application to the table and counts', async () => {
-    const user = userEvent.setup();
-    renderApp();
-    await screen.findByRole('table', { name: 'Recently added applications' });
+    const { user } = renderApp();
+    await screen.findByRole('table', { name: RECENT });
 
     await user.click(screen.getByRole('button', { name: 'Add application' }));
     const dialog = screen.getByRole('dialog', { name: 'Add application' });
@@ -92,17 +76,15 @@ describe('add application', () => {
     expect(await getStatValue('Total applications')).toBe(String(SAMPLE.length + 1));
     expect(await getStatValue('Interviews')).toBe(String(countStatus('interview') + 1));
 
-    const table = screen.getByRole('table', { name: 'Recently added applications' });
-    const firstRow = within(table).getAllByRole('row')[1];
-    expect(within(firstRow).getByText('Acme Robotics')).toBeTruthy();
+    const [firstRow] = getRows(RECENT);
+    expect(within(firstRow).getByRole('link', { name: 'Acme Robotics' })).toBeTruthy();
     expect(within(firstRow).getByText('Junior Developer')).toBeTruthy();
-    expect(within(firstRow).getByText('Interview')).toBeTruthy();
+    expect(within(firstRow).getByRole('combobox', { name: /^Status for/ }).value).toBe('interview');
   });
 
   it('closes without saving when cancelled', async () => {
-    const user = userEvent.setup();
-    renderApp();
-    await screen.findByRole('table', { name: 'Recently added applications' });
+    const { user } = renderApp();
+    await screen.findByRole('table', { name: RECENT });
 
     await user.click(screen.getByRole('button', { name: 'Add application' }));
     const dialog = screen.getByRole('dialog', { name: 'Add application' });

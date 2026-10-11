@@ -1,4 +1,5 @@
 import { AppLayout } from './layouts/AppLayout';
+import ApplicationDetailsPage from './pages/ApplicationDetailsPage';
 import ApplicationsPage from './pages/ApplicationsPage';
 import DashboardPage from './pages/DashboardPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -13,6 +14,11 @@ export const routes = [
     children: [
       { index: true, element: <DashboardPage />, handle: { title: 'Dashboard' } },
       { path: 'applications', element: <ApplicationsPage />, handle: { title: 'Applications' } },
+      {
+        path: 'applications/:applicationId',
+        element: <ApplicationDetailsPage />,
+        handle: { title: 'Application details' },
+      },
       { path: '*', element: <NotFoundPage />, handle: { title: 'Page not found' } },
     ],
   },

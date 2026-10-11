@@ -1,3 +1,5 @@
+import { STATUS_BY_VALUE } from '../constants/applications';
+import { fromLocalDateTimeInput, toLocalDateTimeInput } from './date';
 import { createId } from './format';
 
 // The client-side shape of an application. Field names match the planned
@@ -5,20 +7,6 @@ import { createId } from './format';
 
 function text(value) {
   return typeof value === 'string' ? value.trim() : '';
-}
-
-export function getDefaultApplicationValues(today) {
-  return {
-    company: '',
-    jobTitle: '',
-    location: '',
-    status: 'applied',
-    appliedDate: today,
-    employmentType: 'full-time',
-    source: '',
-    jobUrl: '',
-    notes: '',
-  };
 }
 
 export function createApplicationRecord(input, { id = createId(), now = new Date() } = {}) {
@@ -47,4 +35,62 @@ export function createApplicationRecord(input, { id = createId(), now = new Date
     createdAt: timestamp,
     updatedAt: timestamp,
   };
+}
+
+// ---- Form values ------------------------------------------------------------
+// Form values mirror the record shape, except interviewDate holds the local
+// "YYYY-MM-DDTHH:mm" string used by <input type="datetime-local">.
+
+export function getDefaultFormValues(today) {
+  return {
+    company: '',
+    jobTitle: '',
+    location: '',
+    employmentType: 'full-time',
+    jobUrl: '',
+    salaryRange: '',
+    source: '',
+    status: 'applied',
+    appliedDate: today,
+    deadline: '',
+    interviewDate: '',
+    contact: { name: '', email: '', phone: '' },
+    notes: '',
+  };
+}
+
+export function toFormValues(application) {
+  return {
+    company: application.company,
+    jobTitle: application.jobTitle,
+    location: application.location,
+    employmentType: application.employmentType,
+    jobUrl: application.jobUrl,
+    salaryRange: application.salaryRange,
+    source: application.source,
+    status: application.status,
+    appliedDate: application.appliedDate,
+    deadline: application.deadline,
+    interviewDate: toLocalDateTimeInput(application.interviewDate),
+    contact: { ...application.contact },
+    notes: application.notes,
+  };
+}
+
+export function fromFormValues(values) {
+  return { ...values, interviewDate: fromLocalDateTimeInput(values.interviewDate) };
+}
+
+// ---- Status changes -----------------------------------------------------------
+
+/**
+ * Fields to update when an application moves to `nextStatus`. Moving a job that
+ * was never applied to into a submitted status records today as the applied date.
+ */
+export function getStatusChange(application, nextStatus, today) {
+  const changes = { status: nextStatus };
+  if (!application.appliedDate && STATUS_BY_VALUE[nextStatus]?.requiresAppliedDate) {
+    changes.appliedDate = today;
+  }
+  return changes;
 }

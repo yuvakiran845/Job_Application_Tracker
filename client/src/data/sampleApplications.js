@@ -2,8 +2,9 @@
  * DEVELOPMENT-ONLY SAMPLE DATA
  *
  * Seeds the in-memory mock in services/applicationService.js until the real API
- * is connected (Level 6). Companies are fictional and links use the reserved
- * example.com domain. Never present this as a real user's data.
+ * is connected (Level 6). Companies and people are fictional; links and emails
+ * use the reserved example.com domain and phone numbers use the 555-01xx range
+ * reserved for fiction. Never present this as a real user's data.
  *
  * Dates are generated relative to "now" so the dashboard stays meaningful
  * whenever the app is opened.
@@ -19,7 +20,10 @@ const SAMPLE_ROWS = [
     employmentType: 'full-time',
     source: 'linkedin',
     status: 'interview',
+    salaryRange: '₹14–18 LPA',
     appliedDaysAgo: 12,
+    interviewIn: { days: 2, hour: 10, minute: 30 },
+    contact: { name: 'Priya Raman', email: 'priya.raman@example.com' },
     notes: 'Technical round with the platform team. Revise React performance topics.',
   },
   {
@@ -30,7 +34,8 @@ const SAMPLE_ROWS = [
     source: 'company-website',
     status: 'assessment',
     appliedDaysAgo: 6,
-    notes: 'SQL take-home assessment due within five days.',
+    deadlineInDays: 3,
+    notes: 'SQL take-home assessment.',
   },
   {
     company: 'Brightpath Health',
@@ -39,7 +44,10 @@ const SAMPLE_ROWS = [
     employmentType: 'full-time',
     source: 'referral',
     status: 'offer',
+    salaryRange: '₹12 LPA + joining bonus',
     appliedDaysAgo: 34,
+    deadlineInDays: 9,
+    contact: { name: 'Arjun Mehta', email: 'arjun.mehta@example.com' },
     notes: 'Offer received. Compare benefits before replying.',
   },
   {
@@ -49,7 +57,9 @@ const SAMPLE_ROWS = [
     employmentType: 'contract',
     source: 'job-board',
     status: 'applied',
+    salaryRange: '$35–45 / hour',
     appliedDaysAgo: 3,
+    contact: { name: 'Dana Whitfield', email: 'dana@example.com', phone: '+1 (555) 010-0142' },
   },
   {
     company: 'Harborline Logistics',
@@ -77,6 +87,8 @@ const SAMPLE_ROWS = [
     source: 'recruiter',
     status: 'interview',
     appliedDaysAgo: 18,
+    interviewIn: { days: 5, hour: 15, minute: 0 },
+    contact: { name: 'Meera Nair', email: 'meera.nair@example.com' },
     notes: 'Recruiter mentioned a case-study round next.',
   },
   {
@@ -96,7 +108,7 @@ const SAMPLE_ROWS = [
     source: 'company-website',
     status: 'withdrawn',
     appliedDaysAgo: 52,
-    notes: 'Withdrew after accepting the Brightpath interview process.',
+    notes: 'Withdrew after moving forward with Brightpath.',
   },
   {
     company: 'Pinecrest Software',
@@ -106,6 +118,7 @@ const SAMPLE_ROWS = [
     source: 'referral',
     status: 'assessment',
     appliedDaysAgo: 15,
+    deadlineInDays: 6,
   },
   {
     company: 'Arclight Media',
@@ -125,7 +138,8 @@ const SAMPLE_ROWS = [
     status: 'saved',
     appliedDaysAgo: null,
     addedDaysAgo: 2,
-    notes: 'Portfolio review first — apply before the end of the month.',
+    deadlineInDays: 12,
+    notes: 'Portfolio review first, then apply.',
   },
 ];
 
@@ -137,15 +151,24 @@ function slugify(value) {
 }
 
 export function buildSampleApplications(now = new Date()) {
-  return SAMPLE_ROWS.map(({ appliedDaysAgo, addedDaysAgo, ...row }, index) => {
+  return SAMPLE_ROWS.map(({ appliedDaysAgo, addedDaysAgo, deadlineInDays, interviewIn, ...row }, index) => {
     const addedAt = addDays(now, -(addedDaysAgo ?? appliedDaysAgo));
     // Offset by index so records added on the same day keep a stable order.
     addedAt.setMinutes(addedAt.getMinutes() - index);
+
+    let interviewDate = '';
+    if (interviewIn) {
+      const interview = addDays(now, interviewIn.days);
+      interview.setHours(interviewIn.hour, interviewIn.minute, 0, 0);
+      interviewDate = interview.toISOString();
+    }
 
     return createApplicationRecord(
       {
         ...row,
         appliedDate: appliedDaysAgo == null ? '' : toISODate(addDays(now, -appliedDaysAgo)),
+        deadline: deadlineInDays == null ? '' : toISODate(addDays(now, deadlineInDays)),
+        interviewDate,
         jobUrl: `https://jobs.example.com/${slugify(row.company)}/${slugify(row.jobTitle)}`,
       },
       { id: `sample-${index + 1}`, now: addedAt },

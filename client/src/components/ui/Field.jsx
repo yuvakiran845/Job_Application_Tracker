@@ -46,8 +46,28 @@ export function Field({ id, label, required = false, optional = false, hint, err
   );
 }
 
-export function TextInput({ className, ...props }) {
-  return <input className={cn(CONTROL_CLASSES, 'h-9 px-3', className)} {...props} />;
+export function TextInput({ icon: Icon, className, ...props }) {
+  if (!Icon) return <input className={cn(CONTROL_CLASSES, 'h-9 px-3', className)} {...props} />;
+  return (
+    <div className="relative">
+      <Icon
+        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400"
+        aria-hidden="true"
+      />
+      <input className={cn(CONTROL_CLASSES, 'h-9 pr-3 pl-9', className)} {...props} />
+    </div>
+  );
+}
+
+/** Groups related form fields under a visible legend. */
+export function FormSection({ title, description, children }) {
+  return (
+    <fieldset className="min-w-0">
+      <legend className="text-sm font-semibold text-slate-900">{title}</legend>
+      {description && <p className="mt-0.5 text-xs text-slate-500">{description}</p>}
+      <div className="mt-3 grid gap-x-4 gap-y-5 sm:grid-cols-2">{children}</div>
+    </fieldset>
+  );
 }
 
 export function Textarea({ className, ...props }) {

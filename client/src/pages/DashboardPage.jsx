@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router';
 import { ArrowRight, BriefcaseBusiness, CircleX, Inbox, MessagesSquare, Plus, Trophy } from 'lucide-react';
 import { ApplicationsTable, ApplicationsTableSkeleton } from '../components/applications/ApplicationsTable';
 import { LoadErrorAlert } from '../components/applications/LoadErrorAlert';
@@ -8,6 +7,7 @@ import { StatusBreakdown } from '../components/dashboard/StatusBreakdown';
 import { Button, ButtonLink } from '../components/ui/Button';
 import { Card, CardHeader } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
+import { useApplicationActions } from '../hooks/useApplicationActions';
 import { useApplications } from '../hooks/useApplications';
 import { formatLongDate, getGreeting } from '../utils/date';
 import { pluralize } from '../utils/format';
@@ -16,7 +16,7 @@ import { getApplicationStats, sortByNewest } from '../utils/stats';
 const RECENT_LIMIT = 5;
 
 export default function DashboardPage() {
-  const { openAddApplication } = useOutletContext();
+  const { openAdd } = useApplicationActions();
   const { applications, status, reload } = useApplications();
   const [now] = useState(() => new Date());
 
@@ -91,7 +91,7 @@ export default function DashboardPage() {
                 title="No applications yet"
                 description="Add the first role you’ve applied to and CareerFlow will start tracking your progress."
                 action={
-                  <Button icon={Plus} onClick={openAddApplication}>
+                  <Button icon={Plus} onClick={openAdd}>
                     Add application
                   </Button>
                 }

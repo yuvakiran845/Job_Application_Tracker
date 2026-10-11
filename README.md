@@ -2,7 +2,20 @@
 
 CareerFlow is a job application tracker for students and job seekers. It keeps every application, interview, deadline, and recruitment update in one place.
 
-> **Status: Level 1 of 9: frontend foundation.** The UI runs on development-only sample data held in memory. There is no backend, database, or authentication yet.
+> **Status: Level 2 of 9: application management.** The UI runs on development-only sample data held in memory. There is no backend, database, or authentication yet.
+
+## Features so far
+
+- **Dashboard:** totals, interviews, offers, rejections, a status breakdown, and recently added applications.
+- **Applications list:**
+  - Search by company or job title.
+  - Filter by status, location, and applied-date range.
+  - Sort from the menu or by clicking column headers.
+  - Pagination with 10, 25, or 50 rows.
+  - Search, filters, sort, and page are kept in the URL, so a view can be bookmarked or shared.
+- **Add, view, edit, and delete** applications. Deleting asks for confirmation.
+- **Inline status changes** from any list or the details page. The change shows immediately and is undone if saving fails. Moving a saved job to a submitted status records today as the applied date.
+- **Full application record:** company, title, location, job URL, employment type, salary range, source, applied date, deadline, interview date and time, recruiter contact, notes, and created/updated timestamps.
 
 ## Tech stack
 
@@ -37,18 +50,21 @@ npm run dev        # http://localhost:5173
 client/
   src/
     components/
-      ui/            Design system: Button, Badge, Card, Field inputs, Modal, Alert, Toaster, Skeleton, EmptyState
+      ui/            Design system: Button, Badge, Card, Field inputs, Modal, ConfirmDialog, DropdownMenu,
+                     Pagination, Alert, Toaster, Skeleton, EmptyState
       layout/        Sidebar, mobile drawer, top bar, profile menu
-      applications/  Applications table, Add Application form and modal, status badge
+      applications/  Table, filters, form, status select, row actions menu
       dashboard/     Stat cards, status breakdown
     layouts/         AppLayout (shell around every page)
-    pages/           Dashboard, Applications, Not found, route error
-    context/         ApplicationsProvider (data state), ToastProvider
-    hooks/           useApplications, useToast, useDialog, usePersistentState, usePageTitle
+    pages/           Dashboard, Applications, Application details, Not found, route error (+ page tests)
+    context/         ApplicationsProvider (data state), ApplicationActionsProvider (dialogs), ToastProvider
+    hooks/           useApplications, useApplicationActions, useApplicationQuery, useDebouncedInput,
+                     useToast, useDialog, usePersistentState, usePageTitle
     services/        applicationService.js: the only data access point for the UI
     data/            sampleApplications.js: DEVELOPMENT-ONLY sample data
     constants/       Statuses, employment types, sources (mirror the future DB enums)
-    utils/           Validation, stats, date helpers (+ tests)
+    utils/           Validation, query (search/filter/sort/paginate), stats, dates, model helpers (+ tests)
+    test/            Test setup and render helpers
 server/              Added in Level 3
 ```
 
@@ -56,18 +72,24 @@ server/              Added in Level 3
 
 ```
 Pages/components → useApplications() → ApplicationsProvider → services/applicationService.js
-                                                               └─ Level 1: in-memory mock seeded from data/sampleApplications.js
+                                                               └─ Levels 1–2: in-memory mock seeded from data/sampleApplications.js
                                                                └─ Level 6: REST API calls (same function signatures)
 ```
 
-Components never import sample data directly. The service functions are async and can throw a `ValidationError` with per-field errors, the same contract the API client will follow. Switching to the real backend therefore only changes `applicationService.js`.
+Components never import sample data directly. The service functions (`list`, `create`, `update`, `delete`) are async and can throw a `ValidationError` with per-field errors or a `NotFoundError`, the same contract the API client will follow. Switching to the real backend therefore only changes `applicationService.js`.
+
+Search, filtering, sorting, and pagination live in one pure function, `utils/applicationQuery.js`. Its parameters (`q`, `status`, `location`, `from`, `to`, `sort`, `order`, `page`, `pageSize`) are the same names used in the URL and planned for `GET /api/applications`, so this work can move to the server in Level 6 without changing the UI.
 
 ### Design decisions
 
-- **Dates** without a time (applied date, deadlines) are stored as `YYYY-MM-DD` strings and interpreted in local time, which avoids off-by-one-day timezone bugs.
+- **Dates:**
+  - Calendar dates (applied date, deadline) are stored as `YYYY-MM-DD` strings and read in local time, which avoids off-by-one-day timezone bugs.
+  - Interview times are entered in the user's local time zone, stored as UTC ISO 8601 instants, and displayed with the time-zone name.
 - **The application model** already uses the final field names (`company`, `jobTitle`, `appliedDate`, `status`, `contact`, timestamps, …) so the Mongoose model in Level 4 matches.
 - **Modals and the mobile drawer** use the native `<dialog>` element for focus trapping, Escape handling, and inert backgrounds. Focus returns to the trigger on close.
-- **Client-side validation** exists for user experience only. The server will re-validate every request (Level 3).
+- **Menus** render in a portal with fixed positioning, so scrolling tables can't clip them. They follow the WAI-ARIA menu-button pattern: arrow keys, Home/End, Escape, and focus return.
+- **Text filters** update the URL after a 300 ms pause, so typing stays responsive and the browser history isn't flooded.
+- **Client-side validation** exists for user experience only. The service validates the whole merged record on every update, and the server will re-validate every request (Level 3).
 
 ## Design system
 
@@ -81,7 +103,7 @@ Components never import sample data directly. The service functions are async an
 | Level | Scope | Status |
 | --- | --- | --- |
 | 1 | Frontend foundation: layout, dashboard, Add Application form | ✅ Implemented and verified |
-| 2 | Application management: view, edit, delete, search, filter, sort | ⬜ Not started |
+| 2 | Application management: view, edit, delete, search, filter, sort | ✅ Implemented and verified |
 | 3 | Express backend foundation and API | ⬜ Not started |
 | 4 | MongoDB Atlas integration | ⬜ Not started |
 | 5 | Authentication and security | ⬜ Not started |
@@ -90,11 +112,13 @@ Components never import sample data directly. The service functions are async an
 | 8 | Testing, accessibility, and polish | ⬜ Not started |
 | 9 | Deployment and documentation | ⬜ Not started |
 
-**Level 1 verification:** `npm run lint` (0 problems), `npm test` (31 passing), and `npm run build` all succeed. The dashboard, navigation, sidebar collapse, mobile drawer, profile menu, validation, and the add-application flow were checked in a browser at desktop, tablet, and phone widths.
+**Latest verification (Level 2):** `npm run lint` (0 problems), `npm test` (75 passing: unit tests for validation, query, model, service, and dates, plus integration tests for every CRUD, status, search, filter, sort, and pagination flow), and `npm run build` all succeed. These were also checked in a browser at desktop and phone widths: menus near the bottom of the table, edit pre-fill, interview time-zone round trip, delete confirmation and redirect, and the mobile filter panel.
 
-## Known limitations (Level 1)
+## Known limitations (Level 2)
 
 - Data is in memory only. Reloading the page restores the sample data.
-- The table's Actions column only links to the job posting. View, edit, delete, and status changes come in Level 2.
+- Saved filter views are deferred to Level 7, where they can be stored per user. For now, bookmark the URL, which already contains the filters.
+- Search covers company and job title only; location has its own filter.
+- The status history and activity timeline are planned for Level 7. Only `createdAt` and `updatedAt` are tracked today.
 - Pipeline, Calendar, and Analytics are shown in the sidebar as "Coming soon" and are not clickable.
 - No accounts yet. The profile menu shows a guest identity and a development-only "Reset sample data" action.

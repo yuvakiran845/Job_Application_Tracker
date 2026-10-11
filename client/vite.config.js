@@ -11,5 +11,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.js'],
     restoreMocks: true,
+    // Full-app integration tests type into large forms in jsdom; allow headroom on slower machines.
+    testTimeout: 15000,
   },
 });
