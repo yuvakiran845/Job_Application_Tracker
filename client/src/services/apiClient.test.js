@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { listApplications, updateApplication } from './apiApplicationService';
-import { apiRequest } from './apiClient';
+import { SESSION_EXPIRED_EVENT, apiRequest } from './apiClient';
+import { getCurrentUser } from './authService';
 import { ApiError, NotFoundError, ValidationError } from './errors';
 
 function jsonResponse(status, body) {
@@ -115,5 +116,55 @@ describe('apiApplicationService', () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url.pathname).toBe('/api/applications/a%2Fb');
     expect(init.method).toBe('PUT');
+  });
+});
+
+describe('authentication and CSRF', () => {
+  it('adds the CSRF header to writes but not to reads', async () => {
+    const fetchMock = mockFetch(jsonResponse(200, { data: [] }), jsonResponse(201, { data: {} }));
+    await apiRequest('/applications');
+    await apiRequest('/applications', { method: 'POST', body: {} });
+    expect(fetchMock.mock.calls[0][1].headers['X-CSRF-Protection']).toBeUndefined();
+    expect(fetchMock.mock.calls[1][1].headers['X-CSRF-Protection']).toBe('1');
+  });
+
+  it('announces an ended session when a signed-in request gets 401', async () => {
+    const listener = vi.fn();
+    window.addEventListener(SESSION_EXPIRED_EVENT, listener);
+    mockFetch(
+      jsonResponse(401, { error: { code: 'AUTH_REQUIRED', message: 'You need to sign in to do that.' } }),
+      jsonResponse(401, { error: { code: 'INVALID_CREDENTIALS', message: 'Email or password is incorrect.' } }),
+    );
+
+    await expect(apiRequest('/applications')).rejects.toMatchObject({ status: 401, code: 'AUTH_REQUIRED' });
+    expect(listener).toHaveBeenCalledOnce();
+    // A failed sign-in is not an expired session.
+    await expect(apiRequest('/auth/login', { method: 'POST', body: {} })).rejects.toMatchObject({ status: 401 });
+    expect(listener).toHaveBeenCalledOnce();
+    window.removeEventListener(SESSION_EXPIRED_EVENT, listener);
+  });
+
+  it('maps field errors on any status (e.g. 409 email taken) to ValidationError', async () => {
+    mockFetch(
+      jsonResponse(409, {
+        error: {
+          code: 'EMAIL_TAKEN',
+          message: 'An account with this email already exists.',
+          details: { fieldErrors: { email: 'An account with this email already exists.' } },
+        },
+      }),
+    );
+    const error = await apiRequest('/auth/register', { method: 'POST', body: {} }).catch((caught) => caught);
+    expect(error).toBeInstanceOf(ValidationError);
+    expect(error.fieldErrors.email).toMatch(/already exists/);
+  });
+
+  it('treats "not signed in" as no current user rather than an error', async () => {
+    mockFetch(
+      jsonResponse(401, { error: { code: 'AUTH_REQUIRED', message: 'You need to sign in to do that.' } }),
+      jsonResponse(200, { data: { id: 'u1', name: 'Priya', email: 'priya@example.com' } }),
+    );
+    await expect(getCurrentUser()).resolves.toBeNull();
+    await expect(getCurrentUser()).resolves.toMatchObject({ id: 'u1' });
   });
 });

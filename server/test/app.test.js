@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { api } from './helpers.js';
+import { api, signUp } from './helpers.js';
 
 describe('health check', () => {
   it('reports ok when the database is connected', async () => {
@@ -18,6 +18,7 @@ describe('error responses', () => {
   it('rejects malformed JSON', async () => {
     const response = await api()
       .post('/api/applications')
+      .set('X-CSRF-Protection', '1')
       .set('Content-Type', 'application/json')
       .send('{"company": ')
       .expect(400);
@@ -27,6 +28,7 @@ describe('error responses', () => {
   it('rejects oversized bodies', async () => {
     const response = await api()
       .post('/api/applications')
+      .set('X-CSRF-Protection', '1')
       .send({ notes: 'x'.repeat(60 * 1024) })
       .expect(413);
     expect(response.body.error.code).toBe('PAYLOAD_TOO_LARGE');
@@ -37,7 +39,8 @@ describe('error responses', () => {
     vi.spyOn(Application, 'aggregate').mockImplementation(() => {
       throw new Error('secret connection detail');
     });
-    const response = await api().get('/api/applications').expect(500);
+    const { agent } = await signUp();
+    const response = await agent.get('/api/applications').expect(500);
     expect(response.body).toEqual({
       error: { code: 'INTERNAL_ERROR', message: 'Something went wrong on our side. Please try again.' },
     });
@@ -71,16 +74,5 @@ describe('CORS', () => {
   it('gives no CORS headers to other origins', async () => {
     const response = await api(options).get('/api/health').set('Origin', 'https://evil.example');
     expect(response.headers['access-control-allow-origin']).toBeUndefined();
-  });
-});
-
-describe('authentication placeholder', () => {
-  it('rejects private routes when no development user is configured (production)', async () => {
-    const response = await api({ devUserId: null }).get('/api/applications').expect(401);
-    expect(response.body.error.code).toBe('AUTH_REQUIRED');
-  });
-
-  it('keeps the health check public', async () => {
-    await api({ devUserId: null }).get('/api/health').expect(200);
   });
 });

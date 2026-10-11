@@ -2,7 +2,7 @@
 
 CareerFlow is a job application tracker for students and job seekers. It keeps every application, interview, deadline, and recruitment update in one place.
 
-> **Status: Level 4 of 9: MongoDB integration.** The REST API stores data in MongoDB (local or Atlas). The frontend can read and write through the API (`VITE_DATA_SOURCE=api`) and by default still uses in-memory sample data, so it runs without a server. Authentication arrives in Level 5; until then the API refuses private requests in production.
+> **Status: Level 5 of 9: authentication and security.** Accounts, sign-in, and sessions (HttpOnly cookies) are working, and every API record is private to its owner. In API mode (`VITE_DATA_SOURCE=api`) the frontend requires sign-in. By default it still uses in-memory sample data as a guest, so it runs without a server, until Level 6 connects every screen to the API.
 
 ## Features so far
 
@@ -15,6 +15,7 @@ CareerFlow is a job application tracker for students and job seekers. It keeps e
   - Search, filters, sort, and page are kept in the URL, so a view can be bookmarked or shared.
 - **Add, view, edit, and delete** applications. Deleting asks for confirmation.
 - **Inline status changes** from any list or the details page. The change shows immediately and is undone if saving fails. Moving a saved job to a submitted status records today as the applied date.
+- **Accounts:** sign up, sign in, and sign out, with protected pages that return you to where you were after signing in.
 - **Full application record:** company, title, location, job URL, employment type, salary range, source, applied date, deadline, interview date and time, recruiter contact, notes, and created/updated timestamps.
 
 ## Tech stack
@@ -24,8 +25,8 @@ CareerFlow is a job application tracker for students and job seekers. It keeps e
 | Frontend | React 19, Vite 8, React Router 7, Tailwind CSS 4, lucide-react |
 | Testing | Vitest 4, Testing Library, jsdom |
 | Backend | Node.js, Express 5, MongoDB, Mongoose 9, zod (validation), cors |
+| Security | bcrypt (`bcryptjs`), JWT (`jose`) in HttpOnly cookies, Helmet, `express-rate-limit`, CSRF protection |
 | Backend testing | Vitest, supertest, mongodb-memory-server |
-| Planned | MongoDB Atlas (Level 4), JWT + bcrypt auth, Helmet, rate limiting (Level 5) |
 
 ## Getting started
 
@@ -44,8 +45,7 @@ npm run dev        # http://localhost:5173
 ```bash
 cd server
 npm install
-cp .env.example .env   # then edit MONGODB_URI if needed
-npm run seed           # optional: development sample data
+cp .env.example .env   # then set JWT_SECRET (and MONGODB_URI if needed)
 npm run dev            # http://localhost:4000/api/health
 ```
 
@@ -55,7 +55,13 @@ npm run dev            # http://localhost:4000/api/health
 echo VITE_DATA_SOURCE=api > client/.env.local
 ```
 
-Restart `npm run dev` in `client/`. Vite forwards `/api` to `http://localhost:4000`, so no CORS setup is needed locally. Delete `client/.env.local` to go back to sample data.
+Restart `npm run dev` in `client/`. Vite forwards `/api` to `http://localhost:4000`, so no CORS setup is needed locally. Create an account on the sign-up page. To fill it with the sample applications, run:
+
+```bash
+npm run seed -- --email you@example.com
+```
+
+Delete `client/.env.local` to go back to sample data.
 
 Running MongoDB locally with Docker: `docker run -d --name careerflow-mongo -p 27017:27017 mongo:8`.
 
@@ -72,7 +78,7 @@ Running MongoDB locally with Docker: `docker run -d --name careerflow-mongo -p 2
 | --- | --- |
 | `npm run dev` | Start the API with auto-restart (`node --watch`) |
 | `npm start` | Start the API |
-| `npm run seed` | Development only: add the 12 sample applications for the development user. It refuses if that user already has data (use `npm run seed -- --reset` to replace it), never touches other users, and refuses to run in production. |
+| `npm run seed -- --email <you>` | Development only: add the 12 sample applications to an existing account. It refuses if the account already has data (add `--reset` to replace it), never creates accounts or touches other users, and refuses to run in production. |
 | `npm run lint` | ESLint |
 | `npm test` | API tests against a throwaway MongoDB (see below) |
 
@@ -108,9 +114,9 @@ server/
     server.js        Entry point: validate config → connect DB → listen → graceful shutdown
     app.js           createApp(): middleware, routes, error handling (no DB/port, so tests can use it)
     config/          env.js (validated with zod, fails fast), database.js
-    models/          Application (schema rules, owner reference, indexes, serializer)
+    models/          User (unique email, bcrypt hash, tokenVersion), Application (owner reference, indexes)
     validators/      zod schemas for request bodies, query strings and route params
-    middleware/      validate, auth placeholder, request logger, 404 + central error handler
+    middleware/      requireAuth, CSRF, rate limits, validate, request logger, 404 + central error handler
     controllers/     HTTP ⇄ service translation
     services/        Business rules and owner-scoped database access
     routes/          /api/applications router
@@ -142,7 +148,7 @@ Search, filtering, sorting, and pagination live in one pure function, `utils/app
 - **Validation runs in layers.** Client-side checks exist for user experience. The API validates every request with zod, which strips unknown fields, so a client can never set `userId`, `_id`, or timestamps. The Mongoose schema enforces the same rules again before saving.
 - **Indexes:** every index starts with `userId` (`{userId, createdAt}`, `{userId, status}`, `{userId, appliedDate}`, `{userId, deadline}`), because every query is scoped by owner. Tests run MongoDB's `explain()` on the real list and stats queries and fail on a collection scan. Case-insensitive collation is applied only when sorting by company, because string comparisons can use an index only when the collations match.
 - **Data source switch:** `client/src/services/applicationService.js` delegates to `apiApplicationService.js` (HTTP via `apiClient.js`) or `mockApplicationService.js` (sample data). Both share function signatures and error types (`ValidationError`, `NotFoundError`, `ApiError`), so the UI doesn't know which one is active.
-- **Ownership:** every database query includes the authenticated owner's `userId`. Records belonging to other users return 404, the same as missing ones, so their existence isn't revealed.
+- **Ownership:** every database query includes the authenticated owner's `userId`, taken from the verified session and never from the request. Records belonging to other users return 404, the same as missing ones, so their existence isn't revealed.
 
 ## MongoDB Atlas setup
 
@@ -163,13 +169,33 @@ The API works with any MongoDB 7+ server. For a hosted database, use MongoDB Atl
 | `bad auth : authentication failed` | Wrong user or password, or special characters not URL-encoded |
 | Warning about the `test` database | Database name missing from the URI |
 
+## Authentication and security
+
+| Concern | Implementation |
+| --- | --- |
+| Passwords | bcrypt with cost 12 (`bcryptjs`, the same algorithm and hash format as native `bcrypt`, with no native build step). Passwords are 8–64 characters and at most 72 bytes, because bcrypt ignores anything longer. No composition rules, per current NIST guidance. Never stored, logged, or returned. |
+| Sessions | A signed JWT (HS256, with `iss`, `aud`, and `exp`; 7 days by default) in a `cf_session` cookie that is HttpOnly, `SameSite=Lax`, `Secure` in production, and limited to `Path=/api`. JavaScript can't read it, so cross-site scripting can't steal it, and nothing is stored in localStorage. |
+| Every request | `requireAuth` verifies the token and reloads the user, so deleted accounts are refused immediately. A `tokenVersion` mismatch means the session was revoked: changing the password signs out every other session. |
+| CSRF | Three layers: the SameSite cookie; a required `X-CSRF-Protection: 1` header on every non-GET request (browsers only let allowed origins send it, after a CORS preflight); and a check that any `Origin` header is an allowed origin. |
+| Brute force | Sign-in and password checks: 10 failed attempts per 15 minutes per IP (successful sign-ins don't count). Sign-up: 10 per hour per IP. Sign-in returns the same message, after the same amount of work, for unknown emails and wrong passwords. |
+| Headers | Helmet: CSP, HSTS, `nosniff`, frame and referrer policies, and `Cross-Origin-Resource-Policy: same-site`. |
+| Frontend | Protected routes redirect to `/login?next=…`; only same-app paths are accepted as `next`. Data providers live inside the signed-in layout, so signing out drops the previous user's data from memory. An expired or revoked session sends the user back to sign in. |
+
+**Deployment note:** cookies work best when the frontend and API share a site, for example `app.example.com` and `api.example.com`, with `COOKIE_SAMESITE=lax`. If they must be on different sites, set `COOKIE_SAMESITE=none` and `COOKIE_SECURE=true`; the CSRF header and Origin checks still protect writes. Rate limits use in-memory storage, which is correct for one server instance. Behind a proxy, set `TRUST_PROXY`.
+
 ## API reference
 
-Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"meta"`. Errors are `{ "error": { "code", "message", "details?" } }`.
+Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"meta"`. Errors are `{ "error": { "code", "message", "details?" } }`. Every route except `/health` and the sign-in and sign-up routes requires a session. Every non-GET request must send `X-CSRF-Protection: 1`.
 
 | Method | Path | Success | Notes |
 | --- | --- | --- | --- |
 | GET | `/health` | 200 / 503 | Public. Reports API and database status. |
+| POST | `/auth/register` | 201 | `{ name, email, password }`. Signs the user in (sets the cookie). Returns 409 `EMAIL_TAKEN` if the email is already registered. |
+| POST | `/auth/login` | 200 | `{ email, password }`. Sets the cookie. Returns 401 `INVALID_CREDENTIALS` for a wrong email or password. |
+| POST | `/auth/logout` | 204 | Clears the cookie. |
+| GET | `/auth/me` | 200 | The current user `{ id, name, email, createdAt, updatedAt }`. |
+| PATCH | `/users/me` | 200 | `{ name?, email?, currentPassword? }`. Changing the email requires `currentPassword`. |
+| PUT | `/users/me/password` | 204 | `{ currentPassword, newPassword }`. Signs out all other sessions. |
 | GET | `/applications` | 200 | Query: `q`, `status`, `location`, `from`, `to` (applied date, `YYYY-MM-DD`), `sort` (`createdAt`, `appliedDate`, `company`, `deadline`, `status`), `order` (`asc`/`desc`), `page`, `pageSize` (max 100). Returns `meta: { page, pageSize, total, pageCount }`. |
 | POST | `/applications` | 201 | Required fields: `company`, `jobTitle`, `location`, `status`. Returns a `Location` header. |
 | GET | `/applications/stats` | 200 | Counts by status, plus `appliedSince` (optional query `appliedSince=YYYY-MM-DD`; default is the last 30 days). |
@@ -181,7 +207,10 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
 | --- | --- | --- |
 | 400 | `VALIDATION_ERROR` | Invalid body or query; `details.fieldErrors` maps fields (e.g. `contact.email`) to messages |
 | 400 | `INVALID_ID` / `INVALID_JSON` | Malformed ID or JSON body |
-| 401 | `AUTH_REQUIRED` | Private route without authentication (always in production until Level 5) |
+| 401 | `AUTH_REQUIRED` / `INVALID_CREDENTIALS` | No valid session; wrong email or password |
+| 403 | `CSRF_REJECTED` | A write without the CSRF header, or from an origin that isn't allowed |
+| 409 | `EMAIL_TAKEN` | Email already registered (`details.fieldErrors.email`) |
+| 429 | `RATE_LIMITED` | Too many attempts (`Retry-After` header included) |
 | 404 | `NOT_FOUND` / `ROUTE_NOT_FOUND` | Missing (or someone else's) record; unknown route |
 | 413 | `PAYLOAD_TOO_LARGE` | Body over 50 KB |
 | 500 | `INTERNAL_ERROR` | Unexpected error. Details are logged server-side and never sent to the client. |
@@ -196,7 +225,12 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
 | `PORT` | no | `4000` | HTTP port |
 | `MONGODB_URI` | yes | — | MongoDB connection string. Never committed, and never logged (credentials are masked). |
 | `CLIENT_ORIGIN` | no | `http://localhost:5173` | Comma-separated browser origins allowed by CORS |
-| `DEV_USER_ID` | no | `000…001` (dev only) | Temporary development user until Level 5. The server refuses to start if it is set in production. |
+| `JWT_SECRET` | yes | — | Signs session tokens; at least 32 random characters, unique per environment. Generate one with `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` |
+| `SESSION_DAYS` | no | `7` | How long a sign-in lasts |
+| `COOKIE_SECURE` | no | `true` in production | Send the cookie over HTTPS only |
+| `COOKIE_SAMESITE` | no | `lax` | `lax`, `strict`, or `none` (`none` requires `COOKIE_SECURE=true`) |
+| `TRUST_PROXY` | no | `0` | Number of proxies in front of the API (usually `1` on hosting platforms) |
+| `BCRYPT_ROUNDS` | no | `12` | bcrypt cost (at least 10 in production; tests use 4) |
 
 ## Design system
 
@@ -213,7 +247,7 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
 | 2 | Application management: view, edit, delete, search, filter, sort | ✅ Implemented and verified |
 | 3 | Express backend foundation and API | ✅ Implemented and verified |
 | 4 | MongoDB Atlas integration | ✅ Implemented and verified (local MongoDB 8.2; Atlas guide above) |
-| 5 | Authentication and security | ⬜ Not started |
+| 5 | Authentication and security | ✅ Implemented and verified |
 | 6 | Connect frontend to API | ⬜ Not started |
 | 7 | Kanban, analytics, calendar, activity, CSV export | ⬜ Not started |
 | 8 | Testing, accessibility, and polish | ⬜ Not started |
@@ -226,7 +260,7 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
 - data persisting across a server restart
 - request logs containing no query strings
 - production mode answering 401 on private routes
-- startup refusing a `DEV_USER_ID` in production
+- startup refusing a `DEV_USER_ID` in production (that placeholder was replaced by real authentication in Level 5)
 
 **Level 4 verification:**
 - **Server:** `npm test` (53 passing, including index-usage checks via `explain()` and the seed safety rules).
@@ -236,13 +270,27 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
   - A record added in the UI survives an API restart and a page reload, and can be deleted in the UI.
   - With the API stopped, the UI shows "server unavailable", and **Try again** recovers once it's back.
 
+**Level 5 verification:**
+- **Server:** `npm test` (82 passing: registration, login, sessions, tampered/expired/foreign-secret/revoked tokens, logout, CSRF, rate limits, profile and password changes, Helmet headers, and two-user isolation for every application route).
+- **Client:** `npm test` (112 passing: protected routes, sign-in/sign-up validation and errors, open-redirect protection, sign-out, expired sessions, API client CSRF/401 handling).
+- **End-to-end** against a real API and local MongoDB in the browser:
+  - Signing up returns you to the page you asked for.
+  - The session cookie is invisible to JavaScript.
+  - The session survives a reload.
+  - Signing out ends the server session.
+  - A second account sees none of the first account's data; its URLs give "not found" in the UI and 404 from the API.
+  - A wrong password is refused.
+  - A revoked session sends the user back to sign in, and the refused write is not saved.
+  - Failed sign-ins hit 429 with `Retry-After`.
+  - The API log contains no emails, passwords, or tokens.
+
 ## Known limitations
 
 - The frontend defaults to in-memory sample data. In API mode it currently loads all of the user's applications and filters them in the browser; Level 6 moves search, filters, pagination, and stats to the API's query parameters and `/stats` endpoint.
 - Verified against a local MongoDB 8.2. Connecting to Atlas needs your own cluster and credentials (see *MongoDB Atlas setup*).
-- No authentication yet (Level 5). In development every API request acts as one development user, and in production the private API is closed.
+- There's no profile page in the UI yet (the API supports profile and password updates); it comes with Level 6. Password reset by email isn't included, because email integrations are out of scope.
 - Saved filter views are deferred to Level 7, where they can be stored per user. For now, bookmark the URL, which already contains the filters.
 - Search covers company and job title only; location has its own filter.
 - The status history and activity timeline are planned for Level 7. Only `createdAt` and `updatedAt` are tracked today.
 - Pipeline, Calendar, and Analytics are shown in the sidebar as "Coming soon" and are not clickable.
-- No accounts yet. The profile menu shows a guest identity and a development-only "Reset sample data" action.
+- Sample-data mode has no sign-in: it uses a clearly labelled guest.

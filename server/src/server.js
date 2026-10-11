@@ -9,9 +9,6 @@ async function start() {
   const app = createApp();
   const server = app.listen(config.port, () => {
     logger.info(`CareerFlow API listening on port ${config.port}`, { env: config.env });
-    if (config.devUserId) {
-      logger.warn('Authentication is not implemented yet: all requests act as the development user.');
-    }
   });
 
   async function shutdown(signal) {

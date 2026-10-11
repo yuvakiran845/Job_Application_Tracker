@@ -1,22 +1,24 @@
+import { User } from '../models/User.js';
 import { AppError } from '../utils/errors.js';
+import { SESSION_COOKIE, clearSessionCookie, readSessionToken } from '../utils/session.js';
 
 /**
- * TEMPORARY placeholder until real authentication is added in Level 5.
- *
- * - Development/test: every request acts as one fixed development user, so all
- *   data access is already scoped by owner (userId) from the start.
- * - Production: `devUserId` is null and every private request is rejected,
- *   so no data can be exposed before authentication exists.
- *
- * Level 5 replaces this with verification of the session token; route handlers
- * keep reading the owner from `req.user.id` and never from the request body.
+ * Requires a valid session. Identity comes only from the signed session cookie,
+ * never from the request body or URL. The user is reloaded on each request so
+ * deleted accounts and revoked sessions (tokenVersion changed) stop working at once.
+ * Sets `req.user = { id, name, email }`.
  */
-export function createRequireAuth({ devUserId }) {
-  return function requireAuth(req, _res, next) {
-    if (!devUserId) {
-      return next(new AppError(401, 'AUTH_REQUIRED', 'You need to sign in to do that.'));
-    }
-    req.user = { id: devUserId };
-    return next();
-  };
+export async function requireAuth(req, res, next) {
+  const session = await readSessionToken(req.cookies?.[SESSION_COOKIE]);
+  const user = session && (await User.findById(session.userId).select('+tokenVersion'));
+
+  if (!user || user.tokenVersion !== session.version) {
+    // Remove a cookie that can no longer be used so the browser stops sending it.
+    if (req.cookies?.[SESSION_COOKIE]) clearSessionCookie(res);
+    return next(new AppError(401, 'AUTH_REQUIRED', 'You need to sign in to do that.'));
+  }
+
+  req.user = { id: String(user._id), name: user.name, email: user.email };
+  req.userDocument = user;
+  return next();
 }

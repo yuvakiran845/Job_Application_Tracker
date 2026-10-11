@@ -4,12 +4,15 @@ import { createMemoryRouter } from 'react-router';
 import App from '../App';
 import { routes } from '../routes';
 
-/** Renders the full app at `path` with an in-memory router. */
-export function renderApp(path = '/') {
+/**
+ * Renders the full app at `path` with an in-memory router. Pass `auth` (see
+ * fakeAuthService.js) to turn on sign-in; otherwise the sample-data guest is used.
+ */
+export function renderApp(path = '/', { auth } = {}) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   // jsdom doesn't load our CSS, so the per-event pointer-events check only costs time.
   const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
-  render(<App router={router} />);
+  render(<App router={router} authService={auth} authEnabled={auth ? true : undefined} />);
   return { router, user };
 }
 

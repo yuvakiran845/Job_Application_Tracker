@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as controller from '../controllers/applicationController.js';
+import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import {
   createApplicationSchema,
@@ -9,10 +10,10 @@ import {
   updateApplicationSchema,
 } from '../validators/applicationValidators.js';
 
-export function createApplicationRouter({ requireAuth }) {
+export function createApplicationRouter() {
   const router = Router();
 
-  // Every application route is private.
+  // Every application route is private; handlers read the owner from req.user only.
   router.use(requireAuth);
 
   router.get('/', validate({ query: listQuerySchema }), controller.list);

@@ -1,13 +1,14 @@
 import { RouterProvider } from 'react-router';
-import { ApplicationsProvider } from './context/ApplicationsProvider';
+import { AuthProvider } from './context/AuthProvider';
 import { ToastProvider } from './context/ToastProvider';
 
-export default function App({ router }) {
+/** `authService` and `authEnabled` are only passed by tests; the app uses the defaults. */
+export default function App({ router, authService, authEnabled }) {
   return (
     <ToastProvider>
-      <ApplicationsProvider>
+      <AuthProvider service={authService} enabled={authEnabled}>
         <RouterProvider router={router} />
-      </ApplicationsProvider>
+      </AuthProvider>
     </ToastProvider>
   );
 }

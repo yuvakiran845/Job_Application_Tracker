@@ -23,5 +23,7 @@ export default defineConfig({
     restoreMocks: true,
     // Full-app integration tests type into large forms in jsdom; allow headroom on slower machines.
     testTimeout: 15000,
+    // Tests use the in-memory data service regardless of a developer's local .env files.
+    env: { VITE_DATA_SOURCE: 'mock' },
   },
 });

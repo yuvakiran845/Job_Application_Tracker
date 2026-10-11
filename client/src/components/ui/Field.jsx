@@ -1,4 +1,5 @@
-import { ChevronDown, CircleAlert } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, CircleAlert, Eye, EyeOff } from 'lucide-react';
 import { cn } from '../../utils/format';
 
 const CONTROL_CLASSES =
@@ -55,6 +56,29 @@ export function TextInput({ icon: Icon, className, ...props }) {
         aria-hidden="true"
       />
       <input className={cn(CONTROL_CLASSES, 'h-9 pr-3 pl-9', className)} {...props} />
+    </div>
+  );
+}
+
+/** Password input with a show/hide toggle (reduces typos without a "confirm password" field). */
+export function PasswordInput({ className, ...props }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="relative">
+      <input
+        type={visible ? 'text' : 'password'}
+        className={cn(CONTROL_CLASSES, 'h-9 pr-10 pl-3', className)}
+        {...props}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((current) => !current)}
+        aria-label={visible ? 'Hide password' : 'Show password'}
+        aria-pressed={visible}
+        className="absolute top-1/2 right-1 grid size-7 -translate-y-1/2 cursor-pointer place-items-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+      >
+        {visible ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
+      </button>
     </div>
   );
 }

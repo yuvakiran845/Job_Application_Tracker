@@ -3,12 +3,16 @@ import { ApiError, NotFoundError, ValidationError } from './errors';
 
 const TIMEOUT_MS = 15_000;
 const GATEWAY_ERRORS = [502, 503, 504];
+const SAFE_METHODS = new Set(['GET', 'HEAD']);
+
+/** Fired on window when a signed-in request is rejected because the session ended. */
+export const SESSION_EXPIRED_EVENT = 'careerflow:session-expired';
 
 /**
- * The single place the frontend talks HTTP. Sends and parses JSON, includes
- * credentials (for the session cookie added in Level 5), applies a timeout, and
- * converts the API's `{ error: { code, message, details } }` responses into the
- * data-layer error classes.
+ * The single place the frontend talks HTTP. Sends and parses JSON, includes the
+ * HttpOnly session cookie, adds the CSRF header the API requires on writes,
+ * applies a timeout, and converts the API's `{ error: { code, message, details } }`
+ * responses into the data-layer error classes.
  */
 export async function apiRequest(path, { method = 'GET', body, query } = {}) {
   const url = new URL(`${API_BASE_URL}${path}`, window.location.origin);
@@ -25,6 +29,8 @@ export async function apiRequest(path, { method = 'GET', body, query } = {}) {
       headers: {
         Accept: 'application/json',
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        // Required by the API's CSRF protection; see server/src/middleware/csrf.js.
+        ...(SAFE_METHODS.has(method) ? {} : { 'X-CSRF-Protection': '1' }),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
       credentials: 'include',
@@ -46,8 +52,12 @@ export async function apiRequest(path, { method = 'GET', body, query } = {}) {
   if (response.ok) return payload;
 
   const error = payload?.error ?? {};
-  if (error.code === 'VALIDATION_ERROR') {
-    throw new ValidationError(error.message || 'Some fields need your attention.', error.details?.fieldErrors ?? {});
+  if (error.details?.fieldErrors) {
+    throw new ValidationError(error.message || 'Some fields need your attention.', error.details.fieldErrors);
+  }
+  if (response.status === 401 && !path.startsWith('/auth/')) {
+    // A signed-in request was refused: the session expired or was revoked elsewhere.
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
   }
   if (response.status === 404 || error.code === 'INVALID_ID') throw new NotFoundError();
   // Proxies and hosting platforms answer 502–504 themselves when the API is down.

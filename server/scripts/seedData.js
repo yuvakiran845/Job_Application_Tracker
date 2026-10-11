@@ -62,7 +62,7 @@ export async function seedApplications({ userId, reset = false, now = new Date()
 
   if (existing > 0 && !reset) {
     throw new Error(
-      `The development user already has ${existing} application(s). Run "npm run seed -- --reset" to replace them.`,
+      `This account already has ${existing} application(s). Add --reset to replace them.`,
     );
   }
   if (reset) await Application.deleteMany({ userId: owner });
