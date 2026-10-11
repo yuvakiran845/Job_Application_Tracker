@@ -41,6 +41,15 @@ export function getEventDay(event) {
   return event.type === 'interview' ? toISODate(new Date(event.at)) : event.date;
 }
 
+// Rejected or withdrawn applications have nothing coming up. Their events stay on
+// the month grid as history, but are left out of "upcoming" lists.
+const CLOSED_STATUSES = new Set(['rejected', 'withdrawn']);
+
+/** True for an event on or after `today` ("YYYY-MM-DD") whose application is still active. */
+export function isUpcomingEvent(event, today) {
+  return getEventDay(event) >= today && !CLOSED_STATUSES.has(event.application.status);
+}
+
 /** Interviews by time; deadlines first thing on their day (they have no time). */
 export function sortEvents(events) {
   const key = (event) => (event.type === 'interview' ? event.at : `${event.date}T00:00:00`);

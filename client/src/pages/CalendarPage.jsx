@@ -8,7 +8,7 @@ import { Card, CardHeader } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
 import { useEvents } from '../hooks/useApplicationData';
-import { getEventDay, getMonthGrid, getTimeZoneLabel, groupEventsByDay, toEventRange } from '../utils/calendar';
+import { getMonthGrid, getTimeZoneLabel, groupEventsByDay, isUpcomingEvent, toEventRange } from '../utils/calendar';
 import { addDays, daysBetween, parseISODate, toISODate } from '../utils/date';
 
 const AGENDA_DAYS = 30;
@@ -45,7 +45,7 @@ export default function CalendarPage() {
 
   const eventsByDay = useMemo(() => groupEventsByDay(monthQuery.data ?? []), [monthQuery.data]);
   const agendaByDay = useMemo(
-    () => groupEventsByDay((agendaQuery.data ?? []).filter((event) => getEventDay(event) >= today)),
+    () => groupEventsByDay((agendaQuery.data ?? []).filter((event) => isUpcomingEvent(event, today))),
     [agendaQuery.data, today],
   );
   const selectedEvents = eventsByDay.get(selectedDay) ?? [];

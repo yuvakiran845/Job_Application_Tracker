@@ -81,8 +81,12 @@ export function MonthCalendar({ weeks, month, selectedDay, today, eventsByDay, o
                     className={cn(
                       'flex h-14 w-full cursor-pointer flex-col items-center gap-1 rounded-lg pt-1.5 text-sm transition-colors sm:h-20',
                       selected ? 'bg-brand-600 text-white' : 'hover:bg-slate-100',
-                      !selected && (inMonth ? 'text-slate-800' : 'text-slate-400'),
-                      !selected && isToday && 'font-semibold text-brand-700 ring-1 ring-brand-300 ring-inset',
+                      !selected &&
+                        (isToday
+                          ? 'font-semibold text-brand-700 ring-1 ring-brand-300 ring-inset'
+                          : inMonth
+                            ? 'font-medium text-slate-900'
+                            : 'text-slate-600'),
                     )}
                   >
                     <span aria-hidden="true">{date.getDate()}</span>

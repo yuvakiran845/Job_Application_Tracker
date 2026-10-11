@@ -16,7 +16,13 @@ import { createViewRouter } from './routes/viewRoutes.js';
  * Builds the Express app without connecting to the database or listening on a
  * port, so tests can exercise it directly. Options override config for tests.
  */
-export function createApp({ corsOrigins = config.corsOrigins, authRateLimit } = {}) {
+export function createApp({
+  corsOrigins = config.corsOrigins,
+  authRateLimit = {
+    login: { limit: config.auth.loginRateLimit },
+    signup: { limit: config.auth.signupRateLimit },
+  },
+} = {}) {
   const app = express();
   app.disable('x-powered-by');
   // Needed behind a hosting proxy so req.ip (rate limiting) and req.protocol are correct.

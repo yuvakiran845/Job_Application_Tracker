@@ -6,6 +6,23 @@ function sendError(res, status, code, message, details) {
   res.status(status).json({ error: { code, message, ...(details ? { details } : {}) } });
 }
 
+// Driver and Mongoose errors that mean the database can't be reached right now.
+const DATABASE_UNAVAILABLE = new Set([
+  'MongoServerSelectionError',
+  'MongoNetworkError',
+  'MongoNetworkTimeoutError',
+  'MongoNotConnectedError',
+  'MongoTopologyClosedError',
+]);
+
+function isDatabaseUnavailable(error) {
+  return (
+    DATABASE_UNAVAILABLE.has(error?.name) ||
+    // Mongoose queues commands while disconnected and gives up after bufferTimeoutMS.
+    (error?.name === 'MongooseError' && /buffering timed out/.test(error.message))
+  );
+}
+
 export function notFoundHandler(req, res) {
   sendError(res, 404, 'ROUTE_NOT_FOUND', `No route for ${req.method} ${req.path}.`);
 }
@@ -39,6 +56,17 @@ export function errorHandler(error, req, res, next) {
   }
   if (error instanceof mongoose.Error.CastError) {
     return sendError(res, 400, 'INVALID_VALUE', `Invalid value for ${error.path}.`);
+  }
+
+  if (isDatabaseUnavailable(error)) {
+    logger.error('Database unavailable', { method: req.method, path: req.path, name: error.name });
+    res.set('Retry-After', '10');
+    return sendError(
+      res,
+      503,
+      'DATABASE_UNAVAILABLE',
+      'CareerFlow can’t reach its database right now. Please try again in a moment.',
+    );
   }
 
   logger.error('Unhandled error', { method: req.method, path: req.path, name: error.name, stack: error.stack });

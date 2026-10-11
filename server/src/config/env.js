@@ -25,6 +25,9 @@ const envSchema = z
     // rate limiting sees the real client IP. 0 = trust none.
     TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
     BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).optional(),
+    // Failed sign-ins per 15 minutes and sign-ups per hour, per client IP.
+    LOGIN_RATE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(10),
+    SIGNUP_RATE_LIMIT: z.coerce.number().int().min(1).max(10_000).default(10),
   })
   .superRefine((env, ctx) => {
     const isTest = env.NODE_ENV === 'test';
@@ -75,6 +78,8 @@ export function parseEnv(env) {
       cookieSameSite: parsed.COOKIE_SAMESITE,
       // Cost 4 keeps tests fast; 12 is the default everywhere else.
       bcryptRounds: parsed.BCRYPT_ROUNDS ?? (isTest ? 4 : 12),
+      loginRateLimit: parsed.LOGIN_RATE_LIMIT,
+      signupRateLimit: parsed.SIGNUP_RATE_LIMIT,
     }),
   });
 }

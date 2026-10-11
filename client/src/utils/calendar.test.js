@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { computeAnalytics, formatPercent, getPresetRange, startOfWeek } from './analytics';
-import { describeDeadline, getEventDay, getMonthGrid, groupEventsByDay, sortEvents, toEventRange } from './calendar';
+import {
+  describeDeadline,
+  getEventDay,
+  getMonthGrid,
+  groupEventsByDay,
+  isUpcomingEvent,
+  sortEvents,
+  toEventRange,
+} from './calendar';
 import { toISODate } from './date';
 
 describe('toEventRange', () => {
@@ -41,6 +49,16 @@ describe('events', () => {
     expect(describeDeadline('assessment')).toBe('Assessment due');
     expect(describeDeadline('offer')).toBe('Offer response due');
     expect(describeDeadline('interview')).toBe('Deadline');
+  });
+
+  it('leaves past events and closed applications out of upcoming lists', () => {
+    const withStatus = (event, status) => ({ ...event, application: { status } });
+    const today = '2026-10-14';
+    expect(isUpcomingEvent(withStatus(deadline('2026-10-14'), 'assessment'), today)).toBe(true);
+    expect(isUpcomingEvent(withStatus(deadline('2026-10-20'), 'offer'), today)).toBe(true);
+    expect(isUpcomingEvent(withStatus(deadline('2026-10-13'), 'assessment'), today)).toBe(false);
+    expect(isUpcomingEvent(withStatus(deadline('2026-10-20'), 'rejected'), today)).toBe(false);
+    expect(isUpcomingEvent(withStatus(interview(new Date(2026, 9, 15, 10).toISOString()), 'withdrawn'), today)).toBe(false);
   });
 });
 

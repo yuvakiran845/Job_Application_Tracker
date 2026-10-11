@@ -31,8 +31,14 @@ export default function PipelinePage() {
 
       {/* The board scrolls sideways on its own, so the page itself never does. It is the
           positioning context (relative) so absolutely positioned bits inside cards — like
-          screen-reader-only text — are clipped by it instead of widening the page. */}
-      <div className="relative -mx-4 snap-x overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
+          screen-reader-only text — are clipped by it instead of widening the page. It is
+          focusable so keyboard users can scroll it even when no column has a card. */}
+      <div
+        role="region"
+        aria-label="Pipeline board"
+        tabIndex={0}
+        className="relative -mx-4 snap-x overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
+      >
         <div className="flex items-start gap-3" onDragEnd={endDrag}>
           {APPLICATION_STATUSES.map((status) => (
             <PipelineColumn

@@ -41,7 +41,7 @@ export function PipelineColumn({ status, dragging, isDropTarget, onDragStart, on
         </h2>
         <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200 tabular-nums">
           {query.isPending ? '…' : total}
-          <span className="sr-only"> applications</span>
+          <span className="sr-only">{total === 1 ? ' application' : ' applications'}</span>
         </span>
       </header>
 
@@ -56,7 +56,7 @@ export function PipelineColumn({ status, dragging, isDropTarget, onDragStart, on
         ) : items.length === 0 ? (
           <p
             className={cn(
-              'rounded-lg border border-dashed px-3 py-6 text-center text-xs text-slate-500',
+              'rounded-lg border border-dashed px-3 py-6 text-center text-xs text-slate-600',
               isDropTarget ? 'border-brand-300' : 'border-slate-300',
             )}
           >

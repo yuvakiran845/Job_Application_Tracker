@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { useEvents } from '../../hooks/useApplicationData';
-import { getEventDay, sortEvents, toEventRange } from '../../utils/calendar';
+import { getEventDay, isUpcomingEvent, sortEvents, toEventRange } from '../../utils/calendar';
 import { addDays, daysBetween, parseISODate, toISODate } from '../../utils/date';
 import { LoadErrorAlert } from '../applications/LoadErrorAlert';
 import { EventItem } from '../calendar/EventItem';
@@ -26,7 +26,7 @@ export function UpcomingCard() {
   const range = useMemo(() => toEventRange(now, addDays(now, DAYS - 1)), [now]);
   const query = useEvents(range);
   const events = useMemo(
-    () => sortEvents((query.data ?? []).filter((event) => getEventDay(event) >= today)).slice(0, LIMIT),
+    () => sortEvents((query.data ?? []).filter((event) => isUpcomingEvent(event, today))).slice(0, LIMIT),
     [query.data, today],
   );
 

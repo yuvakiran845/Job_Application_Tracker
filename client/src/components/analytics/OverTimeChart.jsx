@@ -24,7 +24,9 @@ function ChartTooltip({ active, payload, granularity }) {
 export function OverTimeChart({ data, granularity }) {
   return (
     <ResponsiveContainer width="100%" height={260}>
-      <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+      {/* No keyboard layer: the chart is hidden from assistive tech and the table view
+          carries the same numbers, so a focusable chart would be an empty tab stop. */}
+      <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -12 }} accessibilityLayer={false}>
         <CartesianGrid vertical={false} stroke={GRID} strokeWidth={1} />
         <XAxis
           dataKey="start"

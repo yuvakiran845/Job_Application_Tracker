@@ -2,7 +2,7 @@
 
 CareerFlow is a job application tracker for students and job seekers. It keeps every application, interview, deadline, and recruitment update in one place.
 
-> **Status: Level 7 of 9: advanced features.** On top of the connected full stack, CareerFlow adds a Kanban pipeline, analytics, a calendar and agenda, an activity timeline, CSV export, and saved views. Everything is computed from the signed-in user's own records. Sample data is only an explicit development option (`VITE_DATA_SOURCE=mock`), and production builds never include it.
+> **Status: Level 8 of 9: quality and testing.** The full stack (accounts, applications, Kanban pipeline, analytics, calendar, activity timeline, CSV export, saved views) is covered by API tests, UI tests, and a browser end-to-end suite that runs against the real API and MongoDB, including automated WCAG 2.1 AA checks, keyboard-only flows, and phone-size layouts. Everything is computed from the signed-in user's own records. Sample data is only an explicit development option (`VITE_DATA_SOURCE=mock`), and production builds never include it.
 
 ## Features so far
 
@@ -18,7 +18,7 @@ CareerFlow is a job application tracker for students and job seekers. It keeps e
 - **Accounts:** sign up, sign in, and sign out, with protected pages that return you to where you were after signing in. **Account settings** let you change your name, your email (requires your current password), and your password (signs out your other devices).
 - **Pipeline (Kanban):** one column per status. Drag a card to change its status, or use the status menu on each card, which is the keyboard and touch alternative. Moves show immediately and roll back if saving fails.
 - **Analytics:** submitted applications, response, interview, and offer rates (with written definitions), applications over time (with a table view), status breakdown, and sources. Choose the last 30 or 90 days, the last 12 months, all time, or custom dates.
-- **Calendar & agenda:** a month grid with keyboard navigation, a 30-day agenda, and an "Upcoming" card on the dashboard. Interview times show in your time zone; deadlines are labelled by stage ("Assessment due", "Offer response due", …).
+- **Calendar & agenda:** a month grid with keyboard navigation, a 30-day agenda, and an "Upcoming" card on the dashboard. Interview times show in your time zone; deadlines are labelled by stage ("Assessment due", "Offer response due", …). Rejected and withdrawn applications stay on the month grid as history but are left out of "Upcoming".
 - **Activity timeline:** creation, status changes, and edited fields are recorded on each application from now on. Field values are never logged, and history isn't invented for older records.
 - **CSV export** of the current search and filters, with spreadsheet-safe escaping.
 - **Saved views:** name and re-apply sets of filters, stored per account.
@@ -30,6 +30,7 @@ CareerFlow is a job application tracker for students and job seekers. It keeps e
 | --- | --- |
 | Frontend | React 19, Vite 8, React Router 7, Tailwind CSS 4, lucide-react |
 | Testing | Vitest 4, Testing Library, jsdom |
+| End-to-end | Playwright (installed Edge/Chrome), axe-core (WCAG 2.1 A/AA) |
 | Backend | Node.js, Express 5, MongoDB, Mongoose 9, zod (validation), cors |
 | Security | bcrypt (`bcryptjs`), JWT (`jose`) in HttpOnly cookies, Helmet, `express-rate-limit`, CSRF protection |
 | Backend testing | Vitest, supertest, mongodb-memory-server |
@@ -92,6 +93,21 @@ Running MongoDB locally with Docker: `docker run -d --name careerflow-mongo -p 2
 MONGOMS_SYSTEM_BINARY="C:/Program Files/MongoDB/Server/8.2/bin/mongod.exe" npm test
 ```
 
+**End-to-end tests** (`e2e/`) drive a real browser through the production build of the frontend and the real API. They need a running MongoDB, and they use their own database (`careerflow_e2e`, emptied before and after each run; the setup refuses any database whose name doesn't end in `_e2e`) and their own ports (API 4100, web 5174), so they never touch development data. The API, the build, and the preview server are started and stopped for you.
+
+```bash
+cd e2e
+npm install
+npx playwright test
+```
+
+| Option | Default | Purpose |
+| --- | --- | --- |
+| `E2E_MONGODB_URI` | `mongodb://127.0.0.1:27017/careerflow_e2e` | Database for the run (name must end in `_e2e`) |
+| `E2E_BROWSER_CHANNEL` | `msedge` on Windows | Use an installed browser (`msedge` or `chrome`). On macOS/Linux, either set this or run `npx playwright install chromium` once. |
+
+`npm run test:headed` shows the browser, and `npm run report` opens the HTML report (with traces for any failures).
+
 ## Project structure
 
 ```
@@ -130,6 +146,10 @@ server/
     routes/          /api/applications router
     constants/ utils/
   test/              API tests (supertest) + throwaway MongoDB setup
+e2e/
+  playwright.config.js  Starts the API and a production build on their own ports and database
+  global-setup.js       Empties the *_e2e database before a run (global-teardown.js: after it)
+  tests/                Browser journeys, isolation, keyboard, accessibility (axe), mobile, failure handling
 ```
 
 ### Data flow
@@ -246,6 +266,7 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
 | 404 | `NOT_FOUND` / `ROUTE_NOT_FOUND` | Missing (or someone else's) record; unknown route |
 | 413 | `PAYLOAD_TOO_LARGE` | Body over 50 KB |
 | 500 | `INTERNAL_ERROR` | Unexpected error. Details are logged server-side and never sent to the client. |
+| 503 | `DATABASE_UNAVAILABLE` | The database can't be reached (with `Retry-After: 10`). Requests fail within about 5 seconds instead of hanging, and the app shows a retry option. |
 
 **Data formats:** `appliedDate` and `deadline` are `YYYY-MM-DD` calendar dates. `interviewDate`, `createdAt`, and `updatedAt` are ISO 8601 instants in UTC. Empty optional fields are `""`.
 
@@ -263,6 +284,8 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
 | `COOKIE_SAMESITE` | no | `lax` | `lax`, `strict`, or `none` (`none` requires `COOKIE_SECURE=true`) |
 | `TRUST_PROXY` | no | `0` | Number of proxies in front of the API (usually `1` on hosting platforms) |
 | `BCRYPT_ROUNDS` | no | `12` | bcrypt cost (at least 10 in production; tests use 4) |
+| `LOGIN_RATE_LIMIT` | no | `10` | Failed sign-ins allowed per IP per 15 minutes. Keep the default in production; the E2E suite raises it because every test signs up from one IP. |
+| `SIGNUP_RATE_LIMIT` | no | `10` | Sign-ups allowed per IP per hour |
 
 ## Design system
 
@@ -282,7 +305,7 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
 | 5 | Authentication and security | ✅ Implemented and verified |
 | 6 | Connect frontend to API | ✅ Implemented and verified |
 | 7 | Kanban, analytics, calendar, activity, CSV export, saved views | ✅ Implemented and verified |
-| 8 | Testing, accessibility, and polish | ⬜ Not started |
+| 8 | Testing, accessibility, and polish | ✅ Implemented and verified |
 | 9 | Deployment and documentation | ⬜ Not started |
 
 **Latest verification (Level 2):** `npm run lint` (0 problems), `npm test` (75 passing: unit tests for validation, query, model, service, and dates, plus integration tests for every CRUD, status, search, filter, sort, and pagination flow), and `npm run build` all succeed. These were also checked in a browser at desktop and phone widths: menus near the bottom of the table, edit pre-fill, interview time-zone round trip, delete confirmation and redirect, and the mobile filter panel.
@@ -357,6 +380,38 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
   - A saved view persisted in normalized form.
   - No horizontal overflow on any page at phone width. This run caught screen-reader-only text widening the page from inside the Kanban scroller, which is now fixed.
 
+**Level 8 verification:** every command below was run and passed on the final code.
+- **Server:** `npm run lint` (0 problems), `npm test` (107 passing; 7 new): a real database disconnect answers 503 within 8 seconds and recovers, driver errors map to 503 with `Retry-After`, configurable rate limits, and analytics checked against brute-force counts on 4 seeded random datasets of 300 records.
+- **Client:** `npm run lint` (0 problems), `npm test` (144 passing), `npm run build` (main bundle 145 KB gzipped; the chart code loads only on Analytics).
+- **End-to-end:** `npx playwright test` (36 passing: 32 desktop, 4 on a Pixel 7 profile, in Edge). The suite also passed 3 times in a row (`--repeat-each=3`, 96 of 96) to check for flaky tests.
+
+| Requirement | Where it's tested |
+| --- | --- |
+| Registration and login | E2E `auth`: sign-up, session survives reload, return to the requested page. Server `auth`. Client `Auth`. |
+| Invalid credentials | E2E: wrong password and unknown email give the same message. Server: same 401 response for both. |
+| Protected routes | E2E: redirect with `next`; every private API route answers 401 `AUTH_REQUIRED`; writes without the CSRF header or from a foreign origin answer 403. |
+| CRUD, persistence | E2E `applications`: add (with validation), edit, status change, details, delete with confirmation, all checked after reload. |
+| Search and filter combinations | E2E: search + status + location narrowing step by step, a shareable URL restored on reload, a date range, and no-match. Server and client query tests. |
+| Status changes | E2E: from the table and from a pipeline card, recorded in the activity timeline; a failed save rolls back. |
+| Empty account | E2E: a new account's dashboard, list, and every page's empty state (also scanned by axe). |
+| Invalid input | E2E: field errors in the form; the API returns field-level `VALIDATION_ERROR`s and strips unknown fields such as `userId`. |
+| Missing or invalid IDs | E2E: malformed and unknown IDs show "Application not found"; API 400 `INVALID_ID` / 404. Unknown pages show a not-found page. |
+| API and database failures | Server: real disconnect → 503. E2E `resilience`: 503 on load shows the reason and **Try again** recovers; server unreachable at startup; expired session mid-task → sign in → back. |
+| Authorization and cross-user isolation | E2E `isolation`: a second user gets 404 for another user's application (read, activity, update, delete), saved views, and stats, and their export doesn't include it. The owner's data is unchanged. Server tests cover every route. |
+| Analytics accuracy | E2E: a hand-checked dataset gives exact rates for two ranges. Server: randomized brute-force comparison. Client: exact numbers and the table view. |
+| CSV export permissions | E2E: download contains only the filtered rows of the signed-in user, has a BOM, and neutralizes formulas; unauthenticated export is 401. |
+| Mobile and desktop layouts | E2E `mobile`: no page scrolls sideways at phone width (with very long names), the navigation drawer, the list layout, the add form fitting the screen, and 36px touch targets. Desktop: no sideways scrolling on any page. |
+| Keyboard navigation | E2E `keyboard`: skip link, sidebar by Tab/Enter, adding an application without a mouse, Escape returning focus, profile menu arrows/Home/End, delete confirmation focusing Cancel, calendar arrow keys. |
+| Accessible labels | E2E `accessibility`: axe-core WCAG 2.1 A/AA on every page (with data and empty), sign-in with errors, dialogs, menus, and the analytics table. Also checks one `h1` and one `main` per page, and a name on every visible control. |
+
+Issues the new tests found, now fixed:
+- **Low-contrast text.** The empty Kanban columns (4.42:1) and calendar days from other months (2.63:1) were below the 4.5:1 minimum.
+- **Pipeline board keyboard access.** The board scrolled sideways but couldn't be reached by keyboard when it had no cards. It's now a focusable, labelled region.
+- **Focusable hidden chart.** The analytics chart, which is hidden from screen readers, had a keyboard focus layer. That layer is now off, and the table view carries the data.
+- **Invalid details markup.** The details page had an invalid `<dl>` structure.
+- **Wrong count wording.** Kanban counts read "1 applications" to screen readers.
+- **Closed applications in "Upcoming".** The calendar's "Upcoming" list showed deadlines for rejected applications.
+
 ## Known limitations
 
 - Verified against a local MongoDB 8.2. Connecting to Atlas needs your own cluster and credentials (see *MongoDB Atlas setup*).
@@ -368,3 +423,6 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
 - Each Kanban column shows up to 100 applications, with a link to the full filtered list beyond that.
 - Not implemented (optional in the spec): dark mode, follow-up reminders, and AI resume matching (which needs a configured AI provider).
 - Sample-data mode (development only) has no sign-in: it uses a clearly labelled guest.
+- Automated accessibility checks (axe) find about half of real-world issues. Keyboard flows are tested, but no manual screen-reader pass (NVDA, VoiceOver) has been done yet.
+- The E2E suite needs a local MongoDB and an installed browser. It doesn't run in CI yet.
+- In the browser tests, API failures are simulated at the network layer; the real database-disconnect behaviour is covered by the server tests.

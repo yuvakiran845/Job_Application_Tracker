@@ -20,9 +20,9 @@ function NotSet() {
   return <span className="text-slate-500">Not set</span>;
 }
 
-function DetailItem({ label, children }) {
+function DetailItem({ label, className, children }) {
   return (
-    <div>
+    <div className={className}>
       <dt className="text-xs font-medium text-slate-500">{label}</dt>
       <dd className="mt-1 text-sm break-words text-slate-900">{children || <NotSet />}</dd>
     </div>
@@ -179,21 +179,19 @@ export default function ApplicationDetailsPage() {
                   <time dateTime={application.interviewDate}>{formatDateTime(application.interviewDate)}</time>
                 )}
               </DetailItem>
-              <div className="sm:col-span-2">
-                <DetailItem label="Job posting">
-                  {jobUrlValid && (
-                    <a
-                      href={application.jobUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-brand-700 hover:underline"
-                    >
-                      {application.jobUrl}
-                      <span className="sr-only"> (opens in a new tab)</span>
-                    </a>
-                  )}
-                </DetailItem>
-              </div>
+              <DetailItem label="Job posting" className="sm:col-span-2">
+                {jobUrlValid && (
+                  <a
+                    href={application.jobUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand-700 hover:underline"
+                  >
+                    {application.jobUrl}
+                    <span className="sr-only"> (opens in a new tab)</span>
+                  </a>
+                )}
+              </DetailItem>
             </dl>
           </Card>
 

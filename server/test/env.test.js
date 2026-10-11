@@ -17,6 +17,14 @@ describe('parseEnv', () => {
     });
   });
 
+  it('reads auth rate limits, defaulting to 10', () => {
+    expect(parseEnv(base).auth).toMatchObject({ loginRateLimit: 10, signupRateLimit: 10 });
+    expect(parseEnv({ ...base, LOGIN_RATE_LIMIT: '50', SIGNUP_RATE_LIMIT: '200' }).auth).toMatchObject({
+      loginRateLimit: 50,
+      signupRateLimit: 200,
+    });
+  });
+
   it('uses secure cookies by default in production', () => {
     expect(parseEnv({ ...base, NODE_ENV: 'production' }).auth.cookieSecure).toBe(true);
   });
