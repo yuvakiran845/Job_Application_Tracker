@@ -10,7 +10,7 @@ import { escapeRegex, normalizeText } from '../utils/text.js';
 // Missing and foreign records both produce 404, which avoids revealing that an ID exists.
 
 // Case-insensitive, numeric-aware ordering for company names ("Company 9" < "Company 10").
-const COLLATION = { locale: 'en', strength: 2, numericOrdering: true };
+const COMPANY_COLLATION = { locale: 'en', strength: 2, numericOrdering: true };
 
 function ownerId(userId) {
   return new mongoose.Types.ObjectId(userId);
@@ -37,7 +37,11 @@ async function findOwned(userId, id) {
   return application;
 }
 
-export async function listApplications(userId, query) {
+/**
+ * Aggregation pipeline (and collation) for the list endpoint. Exported so tests
+ * can check with explain() that it is served by an index.
+ */
+export function buildListQuery(userId, query) {
   const { q, status, location, from, to, sort, order, page, pageSize } = query;
 
   const match = { userId: ownerId(userId) };
@@ -55,7 +59,7 @@ export async function listApplications(userId, query) {
   const sortKey = sort === 'status' ? 'statusRank' : sort;
   const sortByDate = sort === 'appliedDate' || sort === 'deadline';
 
-  const [result] = await Application.aggregate([
+  const pipeline = [
     { $match: match },
     {
       $addFields: {
@@ -71,9 +75,22 @@ export async function listApplications(userId, query) {
         total: [{ $count: 'count' }],
       },
     },
-  ]).collation(COLLATION);
+  ];
+
+  // Collation only when needed: string comparisons can use an index only if the
+  // index has the same collation, so applying it everywhere would stop the
+  // { userId, status } index from serving status filters.
+  return { pipeline, collation: sort === 'company' ? COMPANY_COLLATION : undefined };
+}
+
+export async function listApplications(userId, query) {
+  const { pipeline, collation } = buildListQuery(userId, query);
+  const aggregate = Application.aggregate(pipeline);
+  if (collation) aggregate.collation(collation);
+  const [result] = await aggregate;
 
   const total = result.total[0]?.count ?? 0;
+  const { page, pageSize } = query;
   return {
     items: result.items.map(serializeApplication),
     meta: { page, pageSize, total, pageCount: Math.max(1, Math.ceil(total / pageSize)) },
@@ -115,9 +132,8 @@ export async function deleteApplication(userId, id) {
  * Dashboard numbers for one user. `appliedSince` should be the client's local
  * calendar date for the start of the window; it defaults to 30 days in UTC.
  */
-export async function getApplicationStats(userId, { appliedSince }) {
-  const since = appliedSince || utcDateString(-29);
-  const [result] = await Application.aggregate([
+export function buildStatsPipeline(userId, since) {
+  return [
     { $match: { userId: ownerId(userId) } },
     {
       $facet: {
@@ -125,7 +141,12 @@ export async function getApplicationStats(userId, { appliedSince }) {
         appliedSince: [{ $match: { appliedDate: { $gte: since } } }, { $count: 'count' }],
       },
     },
-  ]);
+  ];
+}
+
+export async function getApplicationStats(userId, { appliedSince }) {
+  const since = appliedSince || utcDateString(-29);
+  const [result] = await Application.aggregate(buildStatsPipeline(userId, since));
 
   const byStatus = Object.fromEntries(STATUS_VALUES.map((status) => [status, 0]));
   for (const { _id, count } of result.byStatus) byStatus[_id] = count;

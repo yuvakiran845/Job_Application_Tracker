@@ -2,7 +2,7 @@
 
 CareerFlow is a job application tracker for students and job seekers. It keeps every application, interview, deadline, and recruitment update in one place.
 
-> **Status: Level 3 of 9: backend foundation.** The REST API (Express + MongoDB) is built and tested. The UI still runs on development-only sample data until it is connected to the API in Level 6. Authentication arrives in Level 5; until then the API refuses private requests in production.
+> **Status: Level 4 of 9: MongoDB integration.** The REST API stores data in MongoDB (local or Atlas). The frontend can read and write through the API (`VITE_DATA_SOURCE=api`) and by default still uses in-memory sample data, so it runs without a server. Authentication arrives in Level 5; until then the API refuses private requests in production.
 
 ## Features so far
 
@@ -45,8 +45,17 @@ npm run dev        # http://localhost:5173
 cd server
 npm install
 cp .env.example .env   # then edit MONGODB_URI if needed
+npm run seed           # optional: development sample data
 npm run dev            # http://localhost:4000/api/health
 ```
+
+**Frontend + backend together:** run both dev servers, then switch the frontend to the API:
+
+```bash
+echo VITE_DATA_SOURCE=api > client/.env.local
+```
+
+Restart `npm run dev` in `client/`. Vite forwards `/api` to `http://localhost:4000`, so no CORS setup is needed locally. Delete `client/.env.local` to go back to sample data.
 
 Running MongoDB locally with Docker: `docker run -d --name careerflow-mongo -p 27017:27017 mongo:8`.
 
@@ -63,6 +72,7 @@ Running MongoDB locally with Docker: `docker run -d --name careerflow-mongo -p 2
 | --- | --- |
 | `npm run dev` | Start the API with auto-restart (`node --watch`) |
 | `npm start` | Start the API |
+| `npm run seed` | Development only: add the 12 sample applications for the development user. It refuses if that user already has data (use `npm run seed -- --reset` to replace it), never touches other users, and refuses to run in production. |
 | `npm run lint` | ESLint |
 | `npm test` | API tests against a throwaway MongoDB (see below) |
 
@@ -130,7 +140,28 @@ Search, filtering, sorting, and pagination live in one pure function, `utils/app
 - **Menus** render in a portal with fixed positioning, so scrolling tables can't clip them. They follow the WAI-ARIA menu-button pattern: arrow keys, Home/End, Escape, and focus return.
 - **Text filters** update the URL after a 300 ms pause, so typing stays responsive and the browser history isn't flooded.
 - **Validation runs in layers.** Client-side checks exist for user experience. The API validates every request with zod, which strips unknown fields, so a client can never set `userId`, `_id`, or timestamps. The Mongoose schema enforces the same rules again before saving.
+- **Indexes:** every index starts with `userId` (`{userId, createdAt}`, `{userId, status}`, `{userId, appliedDate}`, `{userId, deadline}`), because every query is scoped by owner. Tests run MongoDB's `explain()` on the real list and stats queries and fail on a collection scan. Case-insensitive collation is applied only when sorting by company, because string comparisons can use an index only when the collations match.
+- **Data source switch:** `client/src/services/applicationService.js` delegates to `apiApplicationService.js` (HTTP via `apiClient.js`) or `mockApplicationService.js` (sample data). Both share function signatures and error types (`ValidationError`, `NotFoundError`, `ApiError`), so the UI doesn't know which one is active.
 - **Ownership:** every database query includes the authenticated owner's `userId`. Records belonging to other users return 404, the same as missing ones, so their existence isn't revealed.
+
+## MongoDB Atlas setup
+
+The API works with any MongoDB 7+ server. For a hosted database, use MongoDB Atlas (the free M0 tier is enough):
+
+1. **Create a cluster:** create an Atlas project and a free M0 cluster, in a region close to where the API will run.
+2. **Create a database user:** under *Database Access*, add a user with a generated strong password. Prefer *Specific privileges → `readWrite` on database `careerflow`* over "read and write to any database".
+3. **Allow network access:** under *Network Access*, add your current IP address for local development. For a deployed API, add your host's outbound IP addresses. Use `0.0.0.0/0` only if the host has no fixed IPs, and then rely on a strong password and TLS, which Atlas always uses.
+4. **Copy the connection string:** *Connect → Drivers* gives a `mongodb+srv://…` string.
+   - **Add the database name** before the `?`: `…mongodb.net/careerflow?retryWrites=true&w=majority`. Without it, the data goes to a database called `test`, and the server logs a warning.
+   - **URL-encode** special characters in the password (`@` → `%40`, `:` → `%3A`, `/` → `%2F`).
+5. **Configure the API:** put the string in `server/.env` as `MONGODB_URI`. `.env` is git-ignored; never commit it or paste it into chats or issues. In production, use your host's secret settings instead of a file (Level 9).
+6. **Check it:** run `npm run dev`. The log should show `MongoDB connected {"database":"careerflow",…}` (the URI itself is never logged), and `GET /api/health` should report `"database":"connected"`. Optionally run `npm run seed`.
+
+| Problem | Likely cause |
+| --- | --- |
+| `Server selection timed out` | Your IP isn't on the Atlas network access list |
+| `bad auth : authentication failed` | Wrong user or password, or special characters not URL-encoded |
+| Warning about the `test` database | Database name missing from the URI |
 
 ## API reference
 
@@ -181,7 +212,7 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
 | 1 | Frontend foundation: layout, dashboard, Add Application form | ✅ Implemented and verified |
 | 2 | Application management: view, edit, delete, search, filter, sort | ✅ Implemented and verified |
 | 3 | Express backend foundation and API | ✅ Implemented and verified |
-| 4 | MongoDB Atlas integration | ⬜ Not started |
+| 4 | MongoDB Atlas integration | ✅ Implemented and verified (local MongoDB 8.2; Atlas guide above) |
 | 5 | Authentication and security | ⬜ Not started |
 | 6 | Connect frontend to API | ⬜ Not started |
 | 7 | Kanban, analytics, calendar, activity, CSV export | ⬜ Not started |
@@ -197,9 +228,18 @@ Base URL: `/api`. Successful responses are `{ "data": … }`, and lists add `"me
 - production mode answering 401 on private routes
 - startup refusing a `DEV_USER_ID` in production
 
+**Level 4 verification:**
+- **Server:** `npm test` (53 passing, including index-usage checks via `explain()` and the seed safety rules).
+- **Client:** `npm test` (85 passing, including HTTP error mapping).
+- **End-to-end** with the frontend in API mode against local MongoDB 8.2:
+  - The dashboard loads the seeded records.
+  - A record added in the UI survives an API restart and a page reload, and can be deleted in the UI.
+  - With the API stopped, the UI shows "server unavailable", and **Try again** recovers once it's back.
+
 ## Known limitations
 
-- The frontend still uses in-memory sample data (reloading restores it). It connects to the API in Level 6.
+- The frontend defaults to in-memory sample data. In API mode it currently loads all of the user's applications and filters them in the browser; Level 6 moves search, filters, pagination, and stats to the API's query parameters and `/stats` endpoint.
+- Verified against a local MongoDB 8.2. Connecting to Atlas needs your own cluster and credentials (see *MongoDB Atlas setup*).
 - No authentication yet (Level 5). In development every API request acts as one development user, and in production the private API is closed.
 - Saved filter views are deferred to Level 7, where they can be stored per user. For now, bookmark the URL, which already contains the filters.
 - Search covers company and job title only; location has its own filter.

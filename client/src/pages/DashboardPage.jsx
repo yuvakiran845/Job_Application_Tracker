@@ -17,7 +17,7 @@ const RECENT_LIMIT = 5;
 
 export default function DashboardPage() {
   const { openAdd } = useApplicationActions();
-  const { applications, status, reload } = useApplications();
+  const { applications, status } = useApplications();
   const [now] = useState(() => new Date());
 
   const stats = useMemo(() => getApplicationStats(applications, { now }), [applications, now]);
@@ -58,7 +58,7 @@ export default function DashboardPage() {
       </div>
 
       {status === 'error' ? (
-        <LoadErrorAlert onRetry={reload} />
+        <LoadErrorAlert />
       ) : (
         <>
           <section aria-label="Key metrics" aria-busy={loading}>

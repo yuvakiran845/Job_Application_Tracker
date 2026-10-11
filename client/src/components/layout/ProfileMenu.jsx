@@ -1,4 +1,5 @@
 import { ChevronDown, RotateCcw, UserRound } from 'lucide-react';
+import { IS_MOCK_DATA } from '../../config';
 import { useApplications } from '../../hooks/useApplications';
 import { useToast } from '../../hooks/useToast';
 import { DropdownMenu, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '../ui/DropdownMenu';
@@ -41,14 +42,20 @@ export function ProfileMenu() {
       )}
     >
       <DropdownMenuLabel>
-        <p className="text-sm font-medium text-slate-900">Guest</p>
-        <p className="text-xs text-slate-500">Not signed in · development preview</p>
+        <p className="text-sm font-medium text-slate-900">{IS_MOCK_DATA ? 'Guest' : 'Development user'}</p>
+        <p className="text-xs text-slate-500">
+          Not signed in · {IS_MOCK_DATA ? 'sample data' : 'shared development data'}
+        </p>
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
-      <DropdownMenuItem icon={RotateCcw} onSelect={handleResetSampleData}>
-        Reset sample data
-      </DropdownMenuItem>
-      <DropdownMenuSeparator />
+      {IS_MOCK_DATA && (
+        <>
+          <DropdownMenuItem icon={RotateCcw} onSelect={handleResetSampleData}>
+            Reset sample data
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+        </>
+      )}
       <DropdownMenuLabel>
         <p className="text-xs text-slate-500">Accounts and sign-in are coming soon.</p>
       </DropdownMenuLabel>

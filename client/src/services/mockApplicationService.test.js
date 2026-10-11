@@ -5,7 +5,7 @@ import {
   listApplications,
   resetSampleData,
   updateApplication,
-} from './applicationService';
+} from './mockApplicationService';
 import { NotFoundError, ValidationError } from './errors';
 
 beforeEach(async () => {

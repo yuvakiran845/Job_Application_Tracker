@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Outlet, ScrollRestoration } from 'react-router';
-import { FlaskConical } from 'lucide-react';
+import { Database, FlaskConical } from 'lucide-react';
 import { MobileNav } from '../components/layout/MobileNav';
 import { Sidebar } from '../components/layout/Sidebar';
 import { Topbar } from '../components/layout/Topbar';
 import { Alert } from '../components/ui/Alert';
+import { IS_MOCK_DATA } from '../config';
 import { ApplicationActionsProvider } from '../context/ApplicationActionsProvider';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { usePersistentState } from '../hooks/usePersistentState';
@@ -47,10 +48,17 @@ export function AppLayout() {
             tabIndex={-1}
             className="mx-auto w-full max-w-7xl px-4 py-6 focus:outline-hidden sm:px-6 lg:px-8 lg:py-8"
           >
-            <Alert icon={FlaskConical} className="mb-6">
-              <span className="font-medium text-slate-900">Development preview.</span> You’re viewing sample data.
-              Changes are kept in memory and reset when you reload the page.
-            </Alert>
+            {IS_MOCK_DATA ? (
+              <Alert icon={FlaskConical} className="mb-6">
+                <span className="font-medium text-slate-900">Development preview.</span> You’re viewing sample data.
+                Changes are kept in memory and reset when you reload the page.
+              </Alert>
+            ) : (
+              <Alert icon={Database} className="mb-6">
+                <span className="font-medium text-slate-900">Development mode.</span> Changes are saved to the
+                CareerFlow database for a shared development user. Personal accounts and sign-in are coming soon.
+              </Alert>
+            )}
             <Outlet />
           </main>
         </div>

@@ -1,8 +1,8 @@
 /**
  * DEVELOPMENT-ONLY SAMPLE DATA
  *
- * Seeds the in-memory mock in services/applicationService.js until the real API
- * is connected (Level 6). Companies and people are fictional; links and emails
+ * Seeds the in-memory mock in services/mockApplicationService.js (VITE_DATA_SOURCE=mock).
+ * Companies and people are fictional; links and emails
  * use the reserved example.com domain and phone numbers use the 555-01xx range
  * reserved for fiction. Never present this as a real user's data.
  *

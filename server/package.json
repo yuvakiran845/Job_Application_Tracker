@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
+    "seed": "node scripts/seed.js",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest"

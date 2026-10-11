@@ -50,7 +50,7 @@ export default function ApplicationDetailsPage() {
   const { applicationId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { applications, status, reload } = useApplications();
+  const { applications, status } = useApplications();
   const { openEdit, openDelete } = useApplicationActions();
   const [today] = useState(() => todayISO());
 
@@ -71,7 +71,7 @@ export default function ApplicationDetailsPage() {
     </Link>
   );
 
-  if (status === 'error') return <LoadErrorAlert onRetry={reload} />;
+  if (status === 'error') return <LoadErrorAlert />;
   if (status === 'loading') return <DetailsSkeleton />;
 
   const application = applications.find((item) => item.id === applicationId);

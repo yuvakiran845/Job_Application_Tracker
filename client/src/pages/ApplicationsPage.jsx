@@ -15,13 +15,13 @@ import { pluralize } from '../utils/format';
 
 export default function ApplicationsPage() {
   const { openAdd } = useApplicationActions();
-  const { applications, status, reload } = useApplications();
+  const { applications, status } = useApplications();
   const { query, updateQuery, clearFilters } = useApplicationQuery();
   // Level 6: this becomes a request to GET /api/applications with the same query params.
   const result = useMemo(() => queryApplications(applications, query), [applications, query]);
   const activeFilterCount = countActiveFilters(query);
 
-  if (status === 'error') return <LoadErrorAlert onRetry={reload} />;
+  if (status === 'error') return <LoadErrorAlert />;
 
   const loading = status === 'loading';
   let summary = 'Loading applications…';
