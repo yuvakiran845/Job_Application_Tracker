@@ -74,7 +74,10 @@ export default defineConfig({
   retries: 0,
   timeout: 30_000,
   expect: { timeout: 7_000 },
-  reporter: [['list'], ['html', { open: 'never' }]],
+  // On GitHub Actions, failures also become annotations on the run's summary page.
+  reporter: process.env.GITHUB_ACTIONS
+    ? [['github'], ['list'], ['html', { open: 'never' }]]
+    : [['list'], ['html', { open: 'never' }]],
   globalSetup: './global-setup.js',
   globalTeardown: './global-teardown.js',
   use: {
