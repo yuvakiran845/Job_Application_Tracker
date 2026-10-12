@@ -4,7 +4,7 @@ A job application tracker for students and job seekers. Every application, inter
 
 ![CareerFlow dashboard showing totals, a status breakdown, upcoming interviews and deadlines, and recently added applications](docs/screenshots/dashboard.png)
 
-**Live demo:** not deployed yet. The repository is ready to deploy to Render with MongoDB Atlas; see [Deployment](#deployment).
+**Live demo:** [careerflow-51i3.onrender.com](https://careerflow-51i3.onrender.com). Create an account to try it. It runs on Render's free plan, so the first visit after 15 idle minutes takes about a minute while the server wakes up. It's a demo: please don't enter sensitive personal information. To run your own copy, see [Deployment](#deployment).
 
 ## Features
 
@@ -379,7 +379,6 @@ e2e/
 
 ## Known limitations
 
-- **Not deployed yet.** There's no public demo URL until someone deploys their own copy (see [Deployment](#deployment)).
 - **Free hosting is slow to wake.** On Render's free plan, the first visit after 15 idle minutes takes about a minute.
 - **One server instance.** Rate limits live in memory, which is correct for one instance. Running several would need a shared store such as Redis.
 - **Account recovery and deletion.** There's no password reset by email (email integrations are out of scope), and accounts can't be deleted yet.

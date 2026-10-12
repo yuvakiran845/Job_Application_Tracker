@@ -16,7 +16,7 @@ Test counts are the totals at the end of each level.
 | 6 | Connect frontend to API | ✅ Implemented and verified |
 | 7 | Kanban, analytics, calendar, activity, CSV export, saved views | ✅ Implemented and verified |
 | 8 | Testing, accessibility, and polish | ✅ Implemented and verified |
-| 9 | Deployment and documentation | ✅ Implemented and verified locally (not yet deployed; see Level 9 notes) |
+| 9 | Deployment and documentation | ✅ Implemented, deployed, and verified |
 
 **Level 2 verification:** `npm run lint` (0 problems), `npm test` (75 passing: unit tests for validation, query, model, service, and dates, plus integration tests for every CRUD, status, search, filter, sort, and pagination flow), and `npm run build` all succeed. These were also checked in a browser at desktop and phone widths: menus near the bottom of the table, edit pre-fill, interview time-zone round trip, delete confirmation and redirect, and the mobile filter panel.
 
@@ -122,7 +122,20 @@ Issues the new tests found, now fixed:
 - **Wrong count wording.** Kanban counts read "1 applications" to screen readers.
 - **Closed applications in "Upcoming".** The calendar's "Upcoming" list showed deadlines for rejected applications.
 
-**Level 9 verification:** every command below was run and passed on the final code. The app has **not** been deployed: that needs the owner's GitHub, Render, and MongoDB Atlas accounts. So there's no live URL yet, and the CI workflow hasn't run.
+**Level 9 verification:** every command below was run and passed on the final code.
+- **Live deployment:** https://careerflow-51i3.onrender.com, deployed 2026-10-12 from commit `b77e62c` (Render free plan, Singapore, with MongoDB Atlas).
+  - **First attempt failed at startup.** The connection string still contained the `<` from Atlas's `<db_password>` template and had no database name. With a corrected string and a new password, it connected.
+  - **Startup logs:** `MongoDB connected {"database":"careerflow"}`, then `listening … "frontend":"served by this server"`. Render's health checks get `200`.
+  - **Checked from outside with curl:**
+    - `/api/health` returns `200 ok`, database connected.
+    - HTTP redirects to HTTPS (301).
+    - The page carries CSP, HSTS, `nosniff`, `X-Frame-Options`, and referrer, COOP, and CORP policies, with `Cache-Control: no-cache`.
+    - Assets are `public, max-age=31536000, immutable` and Brotli-compressed. The served bundle is the same file as the locally tested build (`index-viBE1FI7.js`).
+    - Deep links return the app; a missing asset returns a JSON 404.
+    - Private API routes without a session return `401 AUTH_REQUIRED`. Writes from another origin or without the CSRF header return `403`, and no CORS headers go to other origins.
+    - The session cookie is `HttpOnly; Secure; SameSite=Lax; Path=/api` (seen on sign-out, which creates no account).
+  - **In a browser:** the sign-in page renders, its first API call succeeds, and the console shows no errors or CSP violations.
+  - No test account was created on the live site; signing up and using the app there is left to the owner.
 - **Server:** `npm run lint` (0 problems), `npm test` (119 passing; 12 new):
   - Production defaults (same-origin only, serve the frontend).
   - `CLIENT_ORIGIN` validation and normalization.
@@ -145,4 +158,4 @@ Issues the new tests found, now fixed:
 - **Screenshots:** captured from the running app with the sample data. Reviewing them found two layout bugs, now fixed:
   - **Squeezed legend dots.** Status legend dots shrank to nothing when labels didn't fit, which lost the colour key for Assessment, Interview, and Withdrawn. The legend's columns now follow the card's width (a container query), and the dots can't shrink.
   - **Stretched dashboard card.** The status breakdown stretched to the height of the Upcoming card, leaving an empty white area. Recently added now sits under the breakdown, beside Upcoming.
-- **Not verified:** Node 22 locally (this machine has Node 20.19.6; hosting and CI use 22), a real Render deploy, Atlas, and the CI run.
+- **Not verified:** Node 22 locally (this machine has Node 20.19.6; Render and CI use 22). CI's first run (#1) passed the server and client jobs but failed in the browser-test job. Its logs are visible only to repository admins, and the same suite passes locally under CI-like settings, so the cause is still open.
