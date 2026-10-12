@@ -11,6 +11,8 @@ import {
 
 test.describe('Mobile layout', () => {
   test('no page scrolls sideways', async ({ page }) => {
+    // Visits many pages in one test; allow for slow machines.
+    test.slow();
     for (const path of ['/login', '/register']) {
       await page.goto(path);
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();

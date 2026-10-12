@@ -8,7 +8,7 @@ const VARIANTS = {
   secondary:
     'bg-white text-slate-700 shadow-xs ring-1 ring-slate-300 ring-inset hover:bg-slate-50 hover:text-slate-900',
   ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-  danger: 'bg-rose-600 text-white shadow-xs hover:bg-rose-700',
+  danger: 'bg-rose-700 text-white shadow-xs hover:bg-rose-800',
 };
 
 const SIZES = {

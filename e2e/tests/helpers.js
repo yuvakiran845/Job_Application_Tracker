@@ -47,6 +47,14 @@ export async function createApplicationViaApi(page, overrides = {}) {
 
 /** Fails on any WCAG 2.1 A/AA violation reported by axe-core, with a readable summary. */
 export async function expectNoAccessibilityViolations(page, label) {
+  // Scan the settled page: mid-way through a dialog's fade-in, colours are still
+  // blended with the backdrop and contrast is measured too low. Endless animations
+  // (loading pulses) are ignored.
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every((animation) => animation.playState !== 'running' || animation.effect?.getComputedTiming().iterations === Infinity),
+  );
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
   const summary = results.violations.map(
     (violation) =>

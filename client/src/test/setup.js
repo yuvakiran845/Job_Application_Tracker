@@ -1,5 +1,10 @@
 import { afterEach } from 'vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
+
+// findBy*/waitFor give up after 1 s by default. Under load (a busy CI runner, or
+// browser tests running alongside) full-app renders can take longer, which made a
+// few tests fail intermittently; passing tests still finish as soon as they can.
+configure({ asyncUtilTimeout: 5000 });
 
 afterEach(() => {
   cleanup();

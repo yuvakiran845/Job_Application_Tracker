@@ -6,7 +6,7 @@ import { getRowCompanies, getRows, renderApp } from '../test/renderApp';
 const TABLE = 'All applications';
 // Text filters commit to the URL after a 300 ms debounce, then the list re-renders.
 // Under full-suite CPU load that can exceed waitFor's 1 s default.
-const DEBOUNCED = { timeout: 4000 };
+const DEBOUNCED = { timeout: 10_000 };
 
 async function openApplications(path = '/applications') {
   const result = renderApp(path);

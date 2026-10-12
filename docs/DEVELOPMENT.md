@@ -159,7 +159,15 @@ Issues the new tests found, now fixed:
   - **Squeezed legend dots.** Status legend dots shrank to nothing when labels didn't fit, which lost the colour key for Assessment, Interview, and Withdrawn. The legend's columns now follow the card's width (a container query), and the dots can't shrink.
   - **Stretched dashboard card.** The status breakdown stretched to the height of the Upcoming card, leaving an empty white area. Recently added now sits under the breakdown, beside Upcoming.
 - **Continuous integration:** run #2 (commit `44a3533`) passed every job on GitHub's Linux runners with Node 22: server lint and tests, client lint, tests, and build, and 36/36 browser tests in each of the two modes.
-  - **Run #1 failed once, cause unknown.** It passed the server and client jobs but failed the browser-test job, with the same test code. Its logs are visible only to repository admins, and the suite passes locally under CI-like settings (UTC, US English, Chrome, two workers), so it looks like an intermittent failure.
-  - **Next time it's diagnosable:** failing tests now appear as annotations on the public run page.
+  - **Runs #1 and #3 failed intermittently** in the browser-test job. Once failures appeared as public annotations, run #3 identified the cause:
+    - **The failure:** the accessibility scan of the delete-confirmation dialog sometimes ran during its 160 ms fade-in. The red button was then about 80% opaque, which measured 3.94:1 contrast.
+    - **The test fix:** scans now wait for finite animations to finish.
+    - **The app fix:** destructive buttons use a darker red (`rose-700`, about 6:1, instead of `rose-600` at about 4.5:1), so contrast no longer sits right at the minimum.
+  - **Timing under load:** running the UI suite and the browser tests at the same time reproduced more intermittent failures:
+    - UI tests waiting on Testing Library's 1-second default; the default is now 5 s, and the debounced search tests get 10 s.
+    - A 30-second timeout on the browser tests that visit many pages; these are now marked slow, which triples their limit.
+  - **After the fixes:**
+    - UI suite: 144/144 three times idle and twice under load.
+    - Browser tests: 36/36 under load and 36/36 in production mode.
 - **GitHub Actions upgraded** to the Node 24 versions (`checkout@v7`, `setup-node@v7`, `cache@v6`, `upload-artifact@v7`) to clear the Node 20 deprecation warnings.
 - **Not verified:** Node 22 on this machine (it has Node 20.19.6); CI and Render run 22.

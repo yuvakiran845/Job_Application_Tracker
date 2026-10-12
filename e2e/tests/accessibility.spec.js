@@ -50,6 +50,8 @@ test.describe('Accessibility (axe-core, WCAG 2.1 A/AA)', () => {
   });
 
   test('every signed-in page, with data', async ({ page }) => {
+    // Visits many pages in one test; allow for slow machines.
+    test.slow();
     await signUpViaApi(page);
     const application = await seed(page);
 
@@ -68,6 +70,8 @@ test.describe('Accessibility (axe-core, WCAG 2.1 A/AA)', () => {
   });
 
   test('empty states', async ({ page }) => {
+    // Visits many pages in one test; allow for slow machines.
+    test.slow();
     await signUpViaApi(page);
     for (const { path, heading } of PAGES.slice(0, 5)) {
       await page.goto(path);
@@ -108,6 +112,8 @@ test.describe('Accessibility (axe-core, WCAG 2.1 A/AA)', () => {
   });
 
   test('interactive controls all have accessible names', async ({ page }) => {
+    // Visits many pages in one test; allow for slow machines.
+    test.slow();
     await signUpViaApi(page);
     await seed(page);
 
