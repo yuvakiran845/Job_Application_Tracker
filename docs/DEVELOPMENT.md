@@ -158,4 +158,8 @@ Issues the new tests found, now fixed:
 - **Screenshots:** captured from the running app with the sample data. Reviewing them found two layout bugs, now fixed:
   - **Squeezed legend dots.** Status legend dots shrank to nothing when labels didn't fit, which lost the colour key for Assessment, Interview, and Withdrawn. The legend's columns now follow the card's width (a container query), and the dots can't shrink.
   - **Stretched dashboard card.** The status breakdown stretched to the height of the Upcoming card, leaving an empty white area. Recently added now sits under the breakdown, beside Upcoming.
-- **Not verified:** Node 22 locally (this machine has Node 20.19.6; Render and CI use 22). CI's first run (#1) passed the server and client jobs but failed in the browser-test job. Its logs are visible only to repository admins, and the same suite passes locally under CI-like settings, so the cause is still open.
+- **Continuous integration:** run #2 (commit `44a3533`) passed every job on GitHub's Linux runners with Node 22: server lint and tests, client lint, tests, and build, and 36/36 browser tests in each of the two modes.
+  - **Run #1 failed once, cause unknown.** It passed the server and client jobs but failed the browser-test job, with the same test code. Its logs are visible only to repository admins, and the suite passes locally under CI-like settings (UTC, US English, Chrome, two workers), so it looks like an intermittent failure.
+  - **Next time it's diagnosable:** failing tests now appear as annotations on the public run page.
+- **GitHub Actions upgraded** to the Node 24 versions (`checkout@v7`, `setup-node@v7`, `cache@v6`, `upload-artifact@v7`) to clear the Node 20 deprecation warnings.
+- **Not verified:** Node 22 on this machine (it has Node 20.19.6); CI and Render run 22.
