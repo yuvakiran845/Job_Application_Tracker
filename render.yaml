@@ -1,10 +1,10 @@
-# Render Blueprint: one web service that runs the API and serves the built frontend
+# Render Blueprint (My Job Trackr): one web service that runs the API and serves the built frontend
 # from the same origin (no CORS setup, first-party session cookie).
 # Deploy: Render Dashboard → New → Blueprint → pick this repository. See README → Deployment.
 services:
   - type: web
     runtime: node
-    name: careerflow
+    name: my-job-trackr
     plan: free
     region: singapore
     buildCommand: npm run build:deploy
