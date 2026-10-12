@@ -4,7 +4,7 @@ A job application tracker for students and job seekers. Every application, inter
 
 ![My Job Trackr dashboard: application, interview, offer and response-rate cards, upcoming interviews and deadlines, recent applications, and a status breakdown](docs/screenshots/dashboard.png)
 
-**Live demo:** [careerflow-51i3.onrender.com](https://careerflow-51i3.onrender.com). Create an account to try it. It runs on Render's free plan, so the first visit after 15 idle minutes takes about a minute while the server wakes up. It's a demo: please don't enter sensitive personal information. To run your own copy, see [Deployment](#deployment).
+**Live demo:** [my-job-trackr.onrender.com](https://my-job-trackr.onrender.com). Create an account to try it. It runs on Render's free plan, so the first visit after 15 idle minutes takes about a minute while the server wakes up. It's a demo: please don't enter sensitive personal information. To run your own copy, see [Deployment](#deployment).
 
 ## Features
 

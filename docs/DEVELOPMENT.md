@@ -194,3 +194,9 @@ After Level 9, the app was renamed **My Job Trackr** and restyled to match a ref
   - Client: `npm test`, 146 passing (2 new, for `formatTimeAgo`), plus lint and build.
   - Browser tests: 36/36 in development mode and 36/36 in production mode, including axe-core scans of every page, keyboard flows, and phone layouts.
   - The screenshots were regenerated from the running app, and reviewing them caught a gap-leaving card layout, which was fixed.
+- **New live address:** https://my-job-trackr.onrender.com, which replaces careerflow-51i3.onrender.com.
+  - Render fixes a service's address when the service is created, so the Blueprint's service was renamed to `my-job-trackr`, which created a new service.
+  - Its first deploy built successfully on Node 22.23.3, then stopped as designed with `MONGODB_URI is required`, because Render only asks for `sync: false` values when a Blueprint is first created. With the variable added, it connected.
+  - Checked with curl: health `200` with the database connected, HTTP→HTTPS `301`, CSP/HSTS/`nosniff`/frame headers, a no-cache page and immutable Brotli assets (same bundle as the tested build), deep links, `401` without a session, `403` for a foreign-origin write, no CORS headers for other sites, and the cookie `HttpOnly; Secure; SameSite=Lax`.
+  - In a browser, the sign-in page rendered with no console errors.
+  - Data carried over unchanged: both services use the same Atlas database, and Render's Singapore addresses were already allowed.
