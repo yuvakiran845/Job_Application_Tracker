@@ -37,22 +37,42 @@ export const routes = [
       {
         element: <AppLayout />,
         children: [
-          { index: true, element: <DashboardPage />, handle: { title: 'Dashboard' } },
-          { path: 'applications', element: <ApplicationsPage />, handle: { title: 'Applications' } },
+          {
+            index: true,
+            element: <DashboardPage />,
+            handle: { title: 'Dashboard', greeting: true, description: 'Here’s your job search overview.' },
+          },
+          {
+            path: 'applications',
+            element: <ApplicationsPage />,
+            handle: { title: 'My Applications', description: 'Every role you’re tracking, with search, filters and export.' },
+          },
           {
             path: 'applications/:applicationId',
             element: <ApplicationDetailsPage />,
-            handle: { title: 'Application details' },
+            handle: { title: 'Application details', description: 'Everything about this application in one place.' },
           },
-          { path: 'pipeline', element: <PipelinePage />, handle: { title: 'Pipeline' } },
-          { path: 'calendar', element: <CalendarPage />, handle: { title: 'Calendar' } },
+          {
+            path: 'pipeline',
+            element: <PipelinePage />,
+            handle: { title: 'Pipeline', description: 'Every application by stage. Move them along as things progress.' },
+          },
+          {
+            path: 'calendar',
+            element: <CalendarPage />,
+            handle: { title: 'Calendar', description: 'Interviews and deadlines, in your time zone.' },
+          },
           {
             path: 'analytics',
             // Loaded on demand so the charting library isn't part of the main bundle.
             lazy: async () => ({ Component: (await import('./pages/AnalyticsPage')).default }),
-            handle: { title: 'Analytics' },
+            handle: { title: 'Analytics', description: 'How your job search is going, by the numbers.' },
           },
-          { path: 'account', element: <AccountPage />, handle: { title: 'Account' } },
+          {
+            path: 'account',
+            element: <AccountPage />,
+            handle: { title: 'Account', description: 'Your profile and sign-in details.' },
+          },
           { path: '*', element: <NotFoundPage />, handle: { title: 'Page not found' } },
         ],
       },

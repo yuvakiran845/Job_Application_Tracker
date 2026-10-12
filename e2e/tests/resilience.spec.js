@@ -4,7 +4,7 @@ import { PASSWORD, createApplicationViaApi, signUpViaApi } from './helpers.js';
 // The server's own 503 mapping is tested against a real disconnected database in
 // server/test/database-down.test.js. Here the browser's network layer stands in for
 // a failing API, to check what users see and that they can recover.
-const DB_DOWN = 'CareerFlow can’t reach its database right now. Please try again in a moment.';
+const DB_DOWN = 'My Job Trackr can’t reach its database right now. Please try again in a moment.';
 const LIST_URL = /\/api\/applications(\?|$)/;
 
 function databaseDown(route) {
@@ -62,22 +62,22 @@ test.describe('When the API fails', () => {
     await page.route('**/api/**', (route) => (offline ? route.abort('connectionrefused') : route.continue()));
     await page.goto('/');
 
-    await expect(page.getByText('CareerFlow can’t start right now')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('Can’t reach the CareerFlow server.', { exact: false })).toBeVisible();
+    await expect(page.getByText('My Job Trackr can’t start right now')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Can’t reach the My Job Trackr server.', { exact: false })).toBeVisible();
 
     offline = false;
     await page.getByRole('button', { name: 'Try again' }).click();
-    await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: /^Welcome back/ })).toBeVisible();
   });
 
   test('an expired session sends the user to sign in, then back', async ({ page }) => {
     const { email } = await signUpViaApi(page);
     await page.goto('/applications');
-    await expect(page.getByRole('heading', { level: 1, name: 'Applications' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'My Applications' })).toBeVisible();
 
     // The session ends elsewhere (cookie gone); the next request is refused.
     await page.context().clearCookies();
-    await page.getByRole('banner').getByRole('button', { name: 'Add application' }).click();
+    await page.getByRole('banner').getByRole('button', { name: 'Add Job' }).click();
     const dialog = page.getByRole('dialog', { name: 'Add application' });
     await dialog.getByLabel('Company').fill('Northwind Labs');
     await dialog.getByLabel('Job title').fill('Frontend Engineer');

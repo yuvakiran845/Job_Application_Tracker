@@ -47,7 +47,7 @@ test('README screenshots', async ({ page, browser }) => {
 
   // A taller window for the dashboard so the whole page fits (a full-page capture
   // would cut the fixed sidebar off at the original window height).
-  await page.setViewportSize({ width: 1440, height: 1180 });
+  await page.setViewportSize({ width: 1440, height: 1500 });
   await page.goto('/');
   await expect(page.getByRole('link', { name: 'Frontend Engineer at Northwind Labs' }).first()).toBeVisible();
   await capture(page, 'dashboard');
@@ -75,13 +75,16 @@ test('README screenshots', async ({ page, browser }) => {
   await capture(page, 'details');
 
   await page.goto('/applications');
-  await page.getByRole('banner').getByRole('button', { name: 'Add application' }).click();
+  await page.getByRole('banner').getByRole('button', { name: 'Add Job' }).click();
   await expect(page.getByRole('dialog', { name: 'Add application' })).toBeVisible();
   await capture(page, 'add-application');
 
   // Phone size, same account.
   const phone = await browser.newContext({ ...devices['Pixel 7'], storageState: await page.context().storageState() });
   const mobile = await phone.newPage();
+  await mobile.goto('/');
+  await expect(mobile.getByRole('region', { name: 'Upcoming Interviews' }).getByRole('listitem').first()).toBeVisible();
+  await capture(mobile, 'mobile-dashboard');
   await mobile.goto('/applications');
   await expect(mobile.getByRole('list', { name: 'All applications' }).getByRole('link', { name: 'Northwind Labs' })).toBeVisible();
   await capture(mobile, 'mobile-applications');

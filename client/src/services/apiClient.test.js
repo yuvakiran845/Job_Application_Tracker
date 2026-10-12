@@ -95,7 +95,7 @@ describe('apiRequest', () => {
     mockFetch(new TypeError('Failed to fetch'));
     const error = await apiRequest('/applications').catch((caught) => caught);
     expect(error).toMatchObject({ name: 'ApiError', code: 'NETWORK_ERROR' });
-    expect(error.message).toMatch(/Can’t reach the CareerFlow server/);
+    expect(error.message).toMatch(/Can’t reach the My Job Trackr server/);
   });
 });
 

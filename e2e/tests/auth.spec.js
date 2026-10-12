@@ -27,11 +27,11 @@ test.describe('Authentication', () => {
     await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
     await page.getByRole('button', { name: 'Create account' }).click();
 
-    await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: /^Welcome back/ })).toBeVisible();
     await expect(page.getByText('No applications yet')).toBeVisible();
 
     await page.reload();
-    await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: /^Welcome back/ })).toBeVisible();
     await page.getByRole('button', { name: 'Profile menu' }).click();
     await expect(page.getByRole('menu')).toContainText('Asha Verma');
   });

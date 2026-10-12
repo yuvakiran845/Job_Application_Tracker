@@ -103,7 +103,7 @@ export default function LoginPage() {
       </form>
 
       <p className="mt-6 text-center text-sm text-slate-600">
-        New to CareerFlow?{' '}
+        New to My Job Trackr?{' '}
         <Link
           to={next ? `/register?next=${encodeURIComponent(next)}` : '/register'}
           className="font-medium text-brand-700 hover:underline"

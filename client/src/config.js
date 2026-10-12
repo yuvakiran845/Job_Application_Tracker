@@ -2,7 +2,7 @@
 
 /**
  * Where application data comes from:
- * - "api" (default): the CareerFlow REST API, with sign-in.
+ * - "api" (default): the My Job Trackr REST API, with sign-in.
  * - "mock": in-memory development sample data, no server or sign-in. Opt-in for
  *   frontend-only development (VITE_DATA_SOURCE=mock) and used by the test suite.
  *   Production builds always use the API, so sample data can never be shown as

@@ -36,8 +36,8 @@ describe('computeApplicationStats', () => {
 });
 
 describe('getRecentWindowStart', () => {
-  it('starts the 30-day window 29 days before today, in local time', () => {
-    expect(getRecentWindowStart(new Date(2026, 9, 11, 23, 30))).toBe('2026-09-12');
-    expect(getRecentWindowStart(new Date(2026, 0, 5, 0, 15))).toBe('2025-12-07');
+  it('starts the 7-day window 6 days before today, in local time', () => {
+    expect(getRecentWindowStart(new Date(2026, 9, 11, 23, 30))).toBe('2026-10-05');
+    expect(getRecentWindowStart(new Date(2026, 0, 5, 0, 15))).toBe('2025-12-30');
   });
 });

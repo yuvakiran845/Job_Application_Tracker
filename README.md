@@ -1,15 +1,15 @@
-# CareerFlow
+# My Job Trackr
 
 A job application tracker for students and job seekers. Every application, interview, deadline, and recruiter conversation lives in one place, with a Kanban pipeline, a calendar, and analytics on how your search is going.
 
-![CareerFlow dashboard showing totals, a status breakdown, upcoming interviews and deadlines, and recently added applications](docs/screenshots/dashboard.png)
+![My Job Trackr dashboard: application, interview, offer and response-rate cards, upcoming interviews and deadlines, recent applications, and a status breakdown](docs/screenshots/dashboard.png)
 
 **Live demo:** [careerflow-51i3.onrender.com](https://careerflow-51i3.onrender.com). Create an account to try it. It runs on Render's free plan, so the first visit after 15 idle minutes takes about a minute while the server wakes up. It's a demo: please don't enter sensitive personal information. To run your own copy, see [Deployment](#deployment).
 
 ## Features
 
-- **Dashboard:** totals, interviews, offers, rejections, a status breakdown, and recently added applications.
-- **Applications list:**
+- **Dashboard:** a personal greeting, then applications (with how many you applied to this week), interviews (with how many are coming up), offers, and your response rate. Below them are your next interviews and deadlines, your most recent applications, and a status breakdown.
+- **My Applications:**
   - Search by company or job title.
   - Filter by status, location, and applied-date range.
   - Sort from the menu or by clicking column headers.
@@ -32,19 +32,21 @@ A job application tracker for students and job seekers. Every application, inter
 | | |
 | --- | --- |
 | ![Applications list with search, filters, saved views, and CSV export](docs/screenshots/applications.png) | ![Kanban pipeline with one column per status](docs/screenshots/pipeline.png) |
-| **Applications:** search, filters, sorting, saved views, and CSV export | **Pipeline:** drag a card, or use its status menu |
+| **My Applications:** search, filters, sorting, saved views, and CSV export | **Pipeline:** drag a card, or use its status menu |
 | ![Month calendar with interviews and deadlines, plus a 30-day agenda](docs/screenshots/calendar.png) | ![Analytics with rates, applications over time, status breakdown, and sources](docs/screenshots/analytics.png) |
 | **Calendar:** interviews in your time zone, deadlines by stage | **Analytics:** rates with written definitions and a table view |
 | ![Application details with contact, notes, record, and activity timeline](docs/screenshots/details.png) | ![Add application dialog](docs/screenshots/add-application.png) |
 | **Details:** everything about one application, with its history | **Add application:** validated form in an accessible dialog |
 
 <p>
-  <img src="docs/screenshots/mobile-applications.png" alt="Applications as a list on a phone" width="260">
+  <img src="docs/screenshots/mobile-dashboard.png" alt="Dashboard on a phone" width="240">
   &nbsp;
-  <img src="docs/screenshots/mobile-navigation.png" alt="Navigation drawer on a phone" width="260">
+  <img src="docs/screenshots/mobile-applications.png" alt="Applications as a list on a phone" width="240">
+  &nbsp;
+  <img src="docs/screenshots/mobile-navigation.png" alt="Navigation drawer on a phone" width="240">
 </p>
 
-The screenshots show CareerFlow's fictional sample data (the same as `npm run seed`). They're captured from the running app by `npm run screenshots` in `e2e/`.
+The screenshots show the app's fictional sample data (the same as `npm run seed`). They're captured from the running app by `npm run screenshots` in `e2e/`.
 
 ## Tech stack
 
@@ -85,7 +87,7 @@ Pages → hooks/useApplicationData.js (TanStack Query: cache, loading/error stat
 
 | Screen | Requests |
 | --- | --- |
-| Dashboard | `GET /applications/stats?appliedSince=<local date 29 days ago>` and `GET /applications?sort=createdAt&order=desc&pageSize=5` |
+| Dashboard | `GET /applications/stats?appliedSince=<local date 6 days ago>` ("this week"), `GET /applications/analytics` (all time, for the response rate), `GET /applications/events` (the next 30 days), and `GET /applications?sort=createdAt&order=desc&pageSize=4` |
 | Applications | `GET /applications?q=…&status=…&location=…&from=…&to=…&sort=…&order=…&page=…&pageSize=…`. The parameters mirror the page URL. |
 | Details | `GET /applications/:id` |
 | Account | `PATCH /users/me`, `PUT /users/me/password` |
@@ -337,10 +339,10 @@ client/
     components/
       ui/            Design system: Button, Badge, Card, Field inputs, Modal, ConfirmDialog, DropdownMenu,
                      Pagination, Alert, Toaster, Skeleton, EmptyState
-      layout/        Sidebar, mobile drawer, top bar, profile menu
+      layout/        Top bar, navigation links, mobile drawer, page header band, profile menu
       auth/          Route guards (RequireAuth, GuestOnly)
       applications/  Table, filters, form, status select, row actions, saved views, activity timeline
-      dashboard/     Stat cards, status breakdown, upcoming events
+      dashboard/     Stat cards, upcoming interviews and deadlines, recent applications, status breakdown
       pipeline/      Kanban columns and draggable cards
       calendar/      Month grid, event rows
       analytics/     Over-time chart (Recharts), source breakdown
@@ -372,9 +374,10 @@ e2e/
 
 ## Design system
 
-- **Colour:** slate neutrals plus a single indigo `brand` accent (defined in `src/index.css`). Status colours appear only in badges and small indicators (`src/components/ui/tones.js`).
+- **Colour:** slate neutrals plus a single blue `brand` accent (defined in `src/index.css`). Status colours appear only in badges, icon tiles and small indicators (`src/components/ui/tones.js`). Every text colour pairing meets WCAG AA contrast, checked by axe-core in the browser tests.
 - **Type:** Inter (self-hosted via `@fontsource-variable/inter`). Page title `text-lg`, section title `text-base`, body `text-sm`, captions `text-xs`.
-- **Shape:** `rounded-lg` for controls, `rounded-xl` for cards and dialogs, 1px slate-200 borders, `shadow-xs` on surfaces.
+- **Layout:** a sticky top bar (navigation becomes a drawer below 1024 px), then a white page header band with the page's title and a short description, then the content on a light grey background.
+- **Shape:** `rounded-lg` for controls, `rounded-2xl` cards with a soft shadow and a faint outline, `rounded-xl` icon tiles and list items.
 - **States:** loading skeletons, empty states, inline field errors with an error summary, toasts for success and failure, and visible `:focus-visible` rings.
 
 ## Known limitations
@@ -393,4 +396,4 @@ e2e/
 
 ## Development history
 
-CareerFlow was built in nine levels, each implemented, tested, and reviewed before the next. [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) records the scope of each level and exactly how it was verified, including test counts and the bugs that testing caught.
+My Job Trackr (first called CareerFlow) was built in nine levels, each implemented, tested, and reviewed before the next, then rebranded and restyled. [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) records the scope of each level and exactly how it was verified, including test counts and the bugs that testing caught.

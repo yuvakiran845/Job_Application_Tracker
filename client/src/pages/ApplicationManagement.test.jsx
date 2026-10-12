@@ -65,7 +65,7 @@ describe('optimistic status changes', () => {
     );
     await waitFor(() => expect(statusOf()).toBe('offer')); // optimistic
 
-    rejectSave(new ApiError('The CareerFlow server is unavailable right now.', { status: 503 }));
+    rejectSave(new ApiError('The My Job Trackr server is unavailable right now.', { status: 503 }));
     expect(await screen.findByText('Couldn’t update status')).toBeTruthy();
     expect(screen.getByText('Your change was undone. Please try again.')).toBeTruthy();
     await waitFor(() => expect(statusOf()).toBe('interview')); // rolled back

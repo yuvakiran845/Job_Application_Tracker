@@ -8,8 +8,8 @@ import {
 } from './helpers.js';
 
 const PAGES = [
-  { path: '/', heading: 'Dashboard' },
-  { path: '/applications', heading: 'Applications' },
+  { path: '/', heading: 'Welcome back' },
+  { path: '/applications', heading: 'My Applications' },
   { path: '/pipeline', heading: 'Pipeline' },
   { path: '/calendar', heading: 'Calendar' },
   { path: '/analytics', heading: 'Analytics' },
@@ -64,7 +64,7 @@ test.describe('Accessibility (axe-core, WCAG 2.1 A/AA)', () => {
 
       await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
       await expect(page.getByRole('main')).toHaveCount(1);
-      expect(await page.title(), path).toMatch(/CareerFlow/);
+      expect(await page.title(), path).toMatch(/My Job Trackr/);
       expect(await hasHorizontalOverflow(page), `${path} scrolls sideways`).toBe(false);
     }
   });
@@ -86,7 +86,7 @@ test.describe('Accessibility (axe-core, WCAG 2.1 A/AA)', () => {
     await seed(page);
 
     await page.goto('/applications');
-    await page.getByRole('banner').getByRole('button', { name: 'Add application' }).click();
+    await page.getByRole('banner').getByRole('button', { name: 'Add Job' }).click();
     const add = page.getByRole('dialog', { name: 'Add application' });
     await add.getByRole('button', { name: 'Add application' }).click();
     await expect(add.getByText('Company is required.')).toBeVisible();

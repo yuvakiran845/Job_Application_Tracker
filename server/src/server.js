@@ -8,7 +8,7 @@ async function start() {
 
   const app = createApp();
   const server = app.listen(config.port, () => {
-    logger.info(`CareerFlow API listening on port ${config.port}`, {
+    logger.info(`My Job Trackr API listening on port ${config.port}`, {
       env: config.env,
       frontend: config.client.serve ? 'served by this server' : 'not served',
     });

@@ -1,7 +1,8 @@
 import { X } from 'lucide-react';
 import { useDialog } from '../../hooks/useDialog';
 import { Button } from '../ui/Button';
-import { Sidebar } from './Sidebar';
+import { Logo } from './Logo';
+import { NavLinks } from './NavLinks';
 
 export const MOBILE_NAV_ID = 'mobile-navigation';
 
@@ -18,14 +19,17 @@ export function MobileNav({ open, onClose }) {
       {...backdropProps}
     >
       {open && (
-        <Sidebar
-          onNavigate={onClose}
-          headerAction={
-            <Button variant="ghost" size="sm" iconOnly onClick={onClose} aria-label="Close navigation" className="-mr-2">
+        <div className="flex h-full flex-col">
+          <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 px-4">
+            <Logo onNavigate={onClose} />
+            <Button variant="ghost" size="sm" iconOnly onClick={onClose} aria-label="Close navigation" className="-mr-1">
               <X className="size-4" aria-hidden="true" />
             </Button>
-          }
-        />
+          </div>
+          <nav aria-label="Main" className="flex-1 overflow-y-auto p-3">
+            <NavLinks orientation="vertical" onNavigate={onClose} />
+          </nav>
+        </div>
       )}
     </dialog>
   );

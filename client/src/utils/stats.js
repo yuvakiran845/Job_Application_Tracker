@@ -1,9 +1,10 @@
 import { STATUS_VALUES } from '../constants/applications';
 import { addDays, toISODate } from './date';
 
-export const RECENT_WINDOW_DAYS = 30;
+// The dashboard's "this week": the last 7 days, including today.
+export const RECENT_WINDOW_DAYS = 7;
 
-/** First day (local calendar date) of the "applied in the last 30 days" window, including today. */
+/** First day (local calendar date) of the recent "applied since" window, including today. */
 export function getRecentWindowStart(now = new Date(), windowDays = RECENT_WINDOW_DAYS) {
   return toISODate(addDays(now, -(windowDays - 1)));
 }

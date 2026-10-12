@@ -17,7 +17,7 @@ test.describe('Managing applications', () => {
     await expect(page.getByText('No applications yet')).toBeVisible();
 
     // Add: required fields are validated before anything is sent.
-    await page.getByRole('banner').getByRole('button', { name: 'Add application' }).click();
+    await page.getByRole('banner').getByRole('button', { name: 'Add Job' }).click();
     const addDialog = page.getByRole('dialog', { name: 'Add application' });
     await addDialog.getByRole('button', { name: 'Add application' }).click();
     await expect(addDialog.getByText('Company is required.')).toBeVisible();

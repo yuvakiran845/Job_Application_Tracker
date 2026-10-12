@@ -135,7 +135,7 @@ export default function ApplicationDetailsPage() {
               >
                 <ExternalLink className="size-4" aria-hidden="true" />
                 Job posting
-                <span className="sr-only"> (opens in a new tab)</span>
+                {' '}<span className="sr-only">(opens in a new tab)</span>
               </a>
             )}
             <Button variant="secondary" icon={Pencil} onClick={() => openEdit(application)}>
@@ -188,7 +188,7 @@ export default function ApplicationDetailsPage() {
                     className="text-brand-700 hover:underline"
                   >
                     {application.jobUrl}
-                    <span className="sr-only"> (opens in a new tab)</span>
+                    {' '}<span className="sr-only">(opens in a new tab)</span>
                   </a>
                 )}
               </DetailItem>

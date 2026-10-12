@@ -16,7 +16,7 @@ describe('when the database is unavailable', () => {
     expect(response.body).toEqual({
       error: {
         code: 'DATABASE_UNAVAILABLE',
-        message: 'CareerFlow can’t reach its database right now. Please try again in a moment.',
+        message: 'My Job Trackr can’t reach its database right now. Please try again in a moment.',
       },
     });
     // Internal details (hosts, ports) never reach the client.

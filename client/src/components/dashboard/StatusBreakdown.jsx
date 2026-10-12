@@ -6,7 +6,7 @@ import { Skeleton } from '../ui/Skeleton';
 import { getToneStyles } from '../ui/tones';
 
 /** Stacked bar + legend showing how many applications are in each status. */
-export function StatusBreakdown({ byStatus, total, loading = false }) {
+export function StatusBreakdown({ byStatus, total, loading = false, icon, iconTone }) {
   const titleId = useId();
 
   return (
@@ -15,6 +15,8 @@ export function StatusBreakdown({ byStatus, total, loading = false }) {
         titleId={titleId}
         title="Status breakdown"
         description="Where each of your applications currently stands."
+        icon={icon}
+        iconTone={iconTone}
       />
       {/* A container query: the legend's columns follow the card's width, which differs
           between the dashboard and the analytics page, rather than the viewport's. */}

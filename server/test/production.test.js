@@ -47,7 +47,7 @@ describe('serving the frontend build', () => {
   beforeAll(() => {
     distDir = mkdtempSync(path.join(tmpdir(), 'careerflow-dist-'));
     mkdirSync(path.join(distDir, 'assets'));
-    writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>CareerFlow</title><div id="root"></div>');
+    writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>My Job Trackr</title><div id="root"></div>');
     writeFileSync(path.join(distDir, 'assets', 'index-abc123.js'), bigScript);
     writeFileSync(path.join(distDir, 'favicon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
     app = createApp({ corsOrigins: [], client: { serve: true, distDir } });

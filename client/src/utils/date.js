@@ -93,15 +93,21 @@ export function formatDateTime(iso, locale) {
   }).format(new Date(iso));
 }
 
-export function formatLongDate(date, locale) {
-  return new Intl.DateTimeFormat(locale, { weekday: 'long', month: 'long', day: 'numeric' }).format(date);
-}
+const TIME_AGO_UNITS = [
+  ['year', 365],
+  ['month', 30],
+  ['week', 7],
+  ['day', 1],
+];
 
-export function getGreeting(date) {
-  const hour = date.getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
+/** How long ago an instant was, by local calendar day: "Today", "Yesterday", "3 days ago", "Last week", … */
+export function formatTimeAgo(iso, now = new Date(), locale) {
+  const days = daysBetween(toISODate(new Date(iso)), toISODate(now));
+  if (days === null) return '';
+  const format = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+  const [unit, size] = TIME_AGO_UNITS.find(([, length]) => days >= length) ?? ['day', 1];
+  const text = format.format(-Math.floor(Math.max(days, 0) / size), unit);
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /** Short relative label for an upcoming date, e.g. "Today", "In 3 days", "Passed". */

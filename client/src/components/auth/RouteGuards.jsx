@@ -18,7 +18,7 @@ function AuthStatusScreen() {
         <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xs">
           <EmptyState
             icon={TriangleAlert}
-            title="CareerFlow can’t start right now"
+            title="My Job Trackr can’t start right now"
             description={error?.message || 'Please try again in a moment.'}
             action={
               <Button icon={RotateCcw} onClick={retry}>
@@ -35,7 +35,7 @@ function AuthStatusScreen() {
     <FullPageStatus>
       <p role="status" className="flex items-center gap-2 text-sm text-slate-600">
         <LoaderCircle className="size-5 animate-spin text-brand-600" aria-hidden="true" />
-        Loading CareerFlow…
+        Loading My Job Trackr…
       </p>
     </FullPageStatus>
   );

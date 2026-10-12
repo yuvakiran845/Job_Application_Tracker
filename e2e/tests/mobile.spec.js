@@ -75,7 +75,7 @@ test.describe('Mobile layout', () => {
     await expect(page.getByText('Status updated')).toBeVisible();
 
     // The add form fits the screen.
-    await page.getByRole('button', { name: 'Add application' }).click();
+    await page.getByRole('banner').getByRole('button', { name: 'Add Job' }).click();
     const dialog = page.getByRole('dialog', { name: 'Add application' });
     await expect(dialog).toBeVisible();
     const box = await dialog.boundingBox();
@@ -88,7 +88,7 @@ test.describe('Mobile layout', () => {
   test('touch targets in the top bar are at least 36px', async ({ page }) => {
     await signUpViaApi(page);
     await page.goto('/');
-    for (const name of ['Open navigation', 'Add application', 'Profile menu']) {
+    for (const name of ['Open navigation', 'Add Job', 'Profile menu']) {
       const box = await page.getByRole('banner').getByRole('button', { name }).boundingBox();
       expect(box.width, name).toBeGreaterThanOrEqual(36);
       expect(box.height, name).toBeGreaterThanOrEqual(36);

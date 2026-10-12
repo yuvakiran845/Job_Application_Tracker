@@ -175,7 +175,13 @@ describe('saved views', () => {
 describe('dashboard', () => {
   it('shows what is coming up next', async () => {
     renderApp('/');
-    const upcoming = await screen.findByRole('region', { name: 'Upcoming' });
-    expect(await within(upcoming).findByRole('link', { name: 'Frontend Engineer at Northwind Labs' })).toBeTruthy();
+    const interviews = await screen.findByRole('region', { name: 'Upcoming Interviews' });
+    expect(await within(interviews).findByRole('link', { name: 'Frontend Engineer at Northwind Labs' })).toBeTruthy();
+    expect(within(interviews).getByText('In 2 days')).toBeTruthy();
+    // Deadlines get their own card; closed applications (Harborline, rejected) never appear.
+    const deadlines = screen.getByRole('region', { name: 'Upcoming Deadlines' });
+    expect(within(deadlines).getAllByRole('listitem').length).toBeGreaterThan(0);
+    expect(within(deadlines).queryByText('Harborline Logistics')).toBeNull();
+    expect(screen.getByRole('group', { name: 'Interviews' }).textContent).toMatch(/\d+ upcoming/);
   });
 });

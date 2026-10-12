@@ -11,7 +11,7 @@ function localInstant(days, hours, minutes) {
 }
 
 test.describe('Dashboard, pipeline, calendar, analytics, export, saved views', () => {
-  test('dashboard totals match the account’s applications', async ({ page }) => {
+  test('dashboard numbers match the account’s applications', async ({ page }) => {
     await signUpViaApi(page);
     for (const status of ['applied', 'interview', 'interview', 'offer', 'rejected']) {
       await createApplicationViaApi(page, { status });
@@ -20,10 +20,14 @@ test.describe('Dashboard, pipeline, calendar, analytics, export, saved views', (
 
     await page.goto('/');
     const stat = (name) => page.getByRole('group', { name, exact: true });
-    await expect(stat('Total applications')).toContainText('6');
+    await expect(stat('Applications')).toContainText('6');
+    await expect(stat('Applications')).toContainText('+5 applied this week');
     await expect(stat('Interviews')).toContainText('2');
+    await expect(stat('Interviews')).toContainText('None scheduled');
     await expect(stat('Offers')).toContainText('1');
-    await expect(stat('Rejections')).toContainText('1');
+    // 4 of the 5 submitted applications (all but "applied") got a response; "saved" isn't submitted.
+    await expect(stat('Response rate')).toContainText('80%');
+    await expect(stat('Response rate')).toContainText('4 of 5 applications');
   });
 
   test('pipeline columns count by status, and moving a card updates both columns', async ({ page }) => {
@@ -77,7 +81,8 @@ test.describe('Dashboard, pipeline, calendar, analytics, export, saved views', (
 
     // The dashboard shows the same upcoming interview.
     await page.goto('/');
-    await expect(page.getByRole('link', { name: 'Frontend Engineer at Northwind Labs' })).toBeVisible();
+    const interviews = page.getByRole('region', { name: 'Upcoming Interviews' });
+    await expect(interviews.getByRole('link', { name: 'Frontend Engineer at Northwind Labs' })).toBeVisible();
   });
 
   test('analytics rates match a hand-checked dataset', async ({ page }) => {
@@ -122,7 +127,7 @@ test.describe('Dashboard, pipeline, calendar, analytics, export, saved views', (
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Export CSV' }).click();
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toMatch(/^careerflow-applications-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(download.suggestedFilename()).toMatch(/^my-job-trackr-applications-\d{4}-\d{2}-\d{2}\.csv$/);
     await expect(page.getByText('Your filtered applications were downloaded as CSV.')).toBeVisible();
 
     const bytes = await readFile(await download.path());

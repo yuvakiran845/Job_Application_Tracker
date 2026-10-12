@@ -65,7 +65,7 @@ export function errorHandler(error, req, res, next) {
       res,
       503,
       'DATABASE_UNAVAILABLE',
-      'CareerFlow can’t reach its database right now. Please try again in a moment.',
+      'My Job Trackr can’t reach its database right now. Please try again in a moment.',
     );
   }
 

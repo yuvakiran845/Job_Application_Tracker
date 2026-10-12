@@ -161,7 +161,7 @@ export async function exportApplications(query = {}) {
   const { items } = queryApplications(getStore(), { ...DEFAULT_QUERY, ...query, page: 1, pageSize: 5000 });
   return {
     blob: new Blob([toCsv(items, CSV_COLUMNS)], { type: 'text/csv;charset=utf-8' }),
-    filename: `careerflow-applications-${todayISO()}.csv`,
+    filename: `my-job-trackr-applications-${todayISO()}.csv`,
   };
 }
 

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router';
-import { ChevronDown, LogOut, RotateCcw, UserCog, UserRound } from 'lucide-react';
+import { LogOut, RotateCcw, UserCog, UserRound } from 'lucide-react';
 import { IS_MOCK_DATA } from '../../config';
 import { useResetSampleData } from '../../hooks/useApplicationData';
 import { useAuth } from '../../hooks/useAuth';
@@ -45,15 +45,11 @@ export function ProfileMenu() {
           {...props}
           type="button"
           aria-label="Profile menu"
-          className="group flex cursor-pointer items-center gap-1 rounded-full p-0.5 text-slate-500 transition-colors hover:text-slate-700 sm:pr-1.5"
+          className="group flex shrink-0 cursor-pointer rounded-full"
         >
-          <span className="grid size-8 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+          <span className="grid size-10 place-items-center rounded-full bg-emerald-700 text-sm font-semibold text-white transition-colors group-hover:bg-emerald-800">
             {initials || <UserRound className="size-4" aria-hidden="true" />}
           </span>
-          <ChevronDown
-            className="hidden size-4 transition-transform group-aria-expanded:rotate-180 sm:block"
-            aria-hidden="true"
-          />
         </button>
       )}
     >

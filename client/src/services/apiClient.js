@@ -47,7 +47,7 @@ export async function apiRequest(path, { method = 'GET', body, query, responseTy
     throw new ApiError(
       controller.signal.aborted
         ? 'The server took too long to respond. Please try again.'
-        : 'Can’t reach the CareerFlow server. Check your connection and try again.',
+        : 'Can’t reach the My Job Trackr server. Check your connection and try again.',
       { code: 'NETWORK_ERROR' },
     );
   } finally {
@@ -72,7 +72,7 @@ export async function apiRequest(path, { method = 'GET', body, query, responseTy
   if (response.status === 404 || error.code === 'INVALID_ID') throw new NotFoundError();
   // Proxies and hosting platforms answer 502–504 themselves when the API is down.
   if (GATEWAY_ERRORS.includes(response.status) && !error.code) {
-    throw new ApiError('The CareerFlow server is unavailable right now. Please try again in a moment.', {
+    throw new ApiError('The My Job Trackr server is unavailable right now. Please try again in a moment.', {
       status: response.status,
       code: 'SERVER_UNAVAILABLE',
     });

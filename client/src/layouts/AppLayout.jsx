@@ -1,19 +1,14 @@
 import { useState } from 'react';
 import { Outlet, ScrollRestoration } from 'react-router';
 import { FlaskConical } from 'lucide-react';
+import { AppHeader } from '../components/layout/AppHeader';
 import { MobileNav } from '../components/layout/MobileNav';
-import { Sidebar } from '../components/layout/Sidebar';
-import { Topbar } from '../components/layout/Topbar';
+import { PageHeader } from '../components/layout/PageHeader';
 import { Alert } from '../components/ui/Alert';
 import { IS_MOCK_DATA } from '../config';
 import { ApplicationActionsProvider } from '../context/ApplicationActionsProvider';
-import { usePageTitle } from '../hooks/usePageTitle';
-import { usePersistentState } from '../hooks/usePersistentState';
-import { cn } from '../utils/format';
 
 export function AppLayout() {
-  const title = usePageTitle();
-  const [sidebarCollapsed, setSidebarCollapsed] = usePersistentState('careerflow:sidebar-collapsed', false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
@@ -26,28 +21,12 @@ export function AppLayout() {
           Skip to content
         </a>
 
-        <aside
-          className={cn(
-            'fixed inset-y-0 left-0 z-30 hidden border-r border-slate-200 bg-white transition-[width] duration-200 lg:block',
-            sidebarCollapsed ? 'w-[72px]' : 'w-64',
-          )}
-        >
-          <Sidebar
-            collapsed={sidebarCollapsed}
-            onToggleCollapse={() => setSidebarCollapsed((collapsed) => !collapsed)}
-          />
-        </aside>
-
+        <AppHeader mobileNavOpen={mobileNavOpen} onOpenMobileNav={() => setMobileNavOpen(true)} />
         <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
 
-        <div className={cn('transition-[padding] duration-200', sidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-64')}>
-          <Topbar title={title} mobileNavOpen={mobileNavOpen} onOpenMobileNav={() => setMobileNavOpen(true)} />
-
-          <main
-            id="main-content"
-            tabIndex={-1}
-            className="mx-auto w-full max-w-7xl px-4 py-6 focus:outline-hidden sm:px-6 lg:px-8 lg:py-8"
-          >
+        <main id="main-content" tabIndex={-1} className="focus:outline-hidden">
+          <PageHeader />
+          <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
             {IS_MOCK_DATA && (
               <Alert icon={FlaskConical} className="mb-6">
                 <span className="font-medium text-slate-900">Development preview.</span> You’re viewing sample data.
@@ -55,8 +34,8 @@ export function AppLayout() {
               </Alert>
             )}
             <Outlet />
-          </main>
-        </div>
+          </div>
+        </main>
 
         <ScrollRestoration />
       </div>

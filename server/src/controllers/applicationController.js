@@ -64,7 +64,7 @@ export async function exportCsv(req, res) {
     .status(200)
     .set({
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="careerflow-applications-${utcDateString()}.csv"`,
+      'Content-Disposition': `attachment; filename="my-job-trackr-applications-${utcDateString()}.csv"`,
       // Personal data: never store in shared caches.
       'Cache-Control': 'no-store',
     })

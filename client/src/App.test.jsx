@@ -6,7 +6,7 @@ import { getRows, getStatValue, renderApp } from './test/renderApp';
 
 const SAMPLE = buildSampleApplications();
 const countStatus = (status) => SAMPLE.filter((application) => application.status === status).length;
-const RECENT = 'Recently added applications';
+const RECENT = 'Recent applications';
 
 beforeEach(async () => {
   await resetSampleData();
@@ -15,19 +15,23 @@ beforeEach(async () => {
 describe('dashboard', () => {
   it('shows stats calculated from the sample data', async () => {
     renderApp();
-    expect(screen.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeTruthy();
-    expect(await getStatValue('Total applications')).toBe(String(SAMPLE.length));
+    expect(screen.getByRole('heading', { level: 1, name: /^Welcome back!/ })).toBeTruthy();
+    expect(await getStatValue('Applications')).toBe(String(SAMPLE.length));
     expect(await getStatValue('Interviews')).toBe(String(countStatus('interview')));
     expect(await getStatValue('Offers')).toBe(String(countStatus('offer')));
-    expect(await getStatValue('Rejections')).toBe(String(countStatus('rejected')));
+    // Same definition as Analytics: 7 of the 11 submitted applications got a response.
+    const responseRate = screen.getByRole('group', { name: 'Response rate' });
+    expect(within(responseRate).getByText('64%')).toBeTruthy();
+    expect(within(responseRate).getByText('7 of 11 applications')).toBeTruthy();
   });
 
-  it('navigates to the applications page from the sidebar', async () => {
+  it('navigates to the applications page from the top bar', async () => {
     const { router, user } = renderApp();
-    await user.click(screen.getByRole('link', { name: 'Applications' }));
+    const nav = screen.getByRole('navigation', { name: 'Main' });
+    await user.click(within(nav).getByRole('link', { name: 'My Applications' }));
 
     expect(router.state.location.pathname).toBe('/applications');
-    expect(screen.getByRole('heading', { level: 1, name: 'Applications' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'My Applications' })).toBeTruthy();
     await screen.findByRole('table', { name: 'All applications' });
     expect(getRows('All applications')).toHaveLength(10); // first page
   });
@@ -42,9 +46,9 @@ describe('dashboard', () => {
 describe('add application', () => {
   it('validates input, then adds the application to the table and counts', async () => {
     const { user } = renderApp();
-    await screen.findByRole('table', { name: RECENT });
+    await screen.findByRole('list', { name: RECENT });
 
-    await user.click(screen.getByRole('button', { name: 'Add application' }));
+    await user.click(screen.getByRole('button', { name: 'Add Job' }));
     const dialog = screen.getByRole('dialog', { name: 'Add application' });
     const submit = within(dialog).getByRole('button', { name: 'Add application' });
 
@@ -73,26 +77,26 @@ describe('add application', () => {
     expect(screen.getByText('Junior Developer at Acme Robotics')).toBeTruthy();
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
-    expect(await getStatValue('Total applications')).toBe(String(SAMPLE.length + 1));
+    expect(await getStatValue('Applications')).toBe(String(SAMPLE.length + 1));
     expect(await getStatValue('Interviews')).toBe(String(countStatus('interview') + 1));
 
-    const [firstRow] = getRows(RECENT);
-    expect(within(firstRow).getByRole('link', { name: 'Acme Robotics' })).toBeTruthy();
-    expect(within(firstRow).getByText('Junior Developer')).toBeTruthy();
-    expect(within(firstRow).getByRole('combobox', { name: /^Status for/ }).value).toBe('interview');
+    const [firstItem] = within(screen.getByRole('list', { name: RECENT })).getAllByRole('listitem');
+    expect(within(firstItem).getByRole('link', { name: 'Junior Developer at Acme Robotics' })).toBeTruthy();
+    expect(within(firstItem).getByText('Interview')).toBeTruthy();
+    expect(within(firstItem).getByText('Added today')).toBeTruthy();
   });
 
   it('closes without saving when cancelled', async () => {
     const { user } = renderApp();
-    await screen.findByRole('table', { name: RECENT });
+    await screen.findByRole('list', { name: RECENT });
 
-    await user.click(screen.getByRole('button', { name: 'Add application' }));
+    await user.click(screen.getByRole('button', { name: 'Add Job' }));
     const dialog = screen.getByRole('dialog', { name: 'Add application' });
     await user.type(within(dialog).getByLabelText(/^Company/), 'Discarded Co');
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(screen.queryByText('Discarded Co')).toBeNull();
-    expect(await getStatValue('Total applications')).toBe(String(SAMPLE.length));
+    expect(await getStatValue('Applications')).toBe(String(SAMPLE.length));
   });
 });

@@ -26,13 +26,13 @@ describe('protected routes', () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/applications'));
     expect(router.state.location.search).toBe('?status=offer');
-    expect(await screen.findByRole('heading', { level: 1, name: 'Applications' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { level: 1, name: 'My Applications' })).toBeTruthy();
   });
 
   it('redirects signed-in users away from the sign-in page', async () => {
     const { router } = renderApp('/login', { auth: createFakeAuthService({ signedIn: true }) });
     await waitFor(() => expect(router.state.location.pathname).toBe('/'));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Dashboard' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { level: 1, name: /^Welcome back/ })).toBeTruthy();
   });
 
   it('ignores unsafe redirect targets after sign-in', async () => {
@@ -46,13 +46,13 @@ describe('protected routes', () => {
 
   it('explains when the API cannot be reached and lets the user retry', async () => {
     const auth = createFakeAuthService({ signedIn: true });
-    auth.getCurrentUser.mockRejectedValueOnce(new ApiError('Can’t reach the CareerFlow server.'));
+    auth.getCurrentUser.mockRejectedValueOnce(new ApiError('Can’t reach the My Job Trackr server.'));
     const { user } = renderApp('/', { auth });
 
-    expect(await screen.findByText('CareerFlow can’t start right now')).toBeTruthy();
-    expect(screen.getByText('Can’t reach the CareerFlow server.')).toBeTruthy();
+    expect(await screen.findByText('My Job Trackr can’t start right now')).toBeTruthy();
+    expect(screen.getByText('Can’t reach the My Job Trackr server.')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Dashboard' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { level: 1, name: /^Welcome back/ })).toBeTruthy();
   });
 });
 
@@ -118,7 +118,7 @@ describe('create account', () => {
     await user.click(screen.getByRole('button', { name: 'Create account' }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/'));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Dashboard' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { level: 1, name: /^Welcome back/ })).toBeTruthy();
   });
 });
 
@@ -141,7 +141,7 @@ describe('signing out and expired sessions', () => {
 
   it('returns to sign-in when the API reports the session has ended', async () => {
     const { router } = renderApp('/applications', { auth: createFakeAuthService({ signedIn: true }) });
-    expect(await screen.findByRole('heading', { level: 1, name: 'Applications' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { level: 1, name: 'My Applications' })).toBeTruthy();
 
     act(() => {
       window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));

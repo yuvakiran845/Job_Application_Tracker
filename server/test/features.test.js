@@ -110,7 +110,7 @@ describe('CSV export', () => {
 
     const response = await agent.get('/api/applications/export?sort=company&order=asc').expect(200);
     expect(response.headers['content-type']).toMatch(/^text\/csv; charset=utf-8/);
-    expect(response.headers['content-disposition']).toMatch(/^attachment; filename="careerflow-applications-\d{4}-\d{2}-\d{2}\.csv"$/);
+    expect(response.headers['content-disposition']).toMatch(/^attachment; filename="my-job-trackr-applications-\d{4}-\d{2}-\d{2}\.csv"$/);
     expect(response.headers['cache-control']).toBe('no-store');
 
     const [header, ...rows] = parseCsv(response.text.replace(BOM, ''));

@@ -1,32 +1,30 @@
 import { Link } from 'react-router';
+import { BriefcaseBusiness } from 'lucide-react';
 import { cn } from '../../utils/format';
+
+export const APP_NAME = 'My Job Trackr';
 
 export function LogoMark({ className }) {
   return (
-    <svg viewBox="0 0 32 32" fill="none" className={cn('size-8 shrink-0', className)} aria-hidden="true">
-      <rect width="32" height="32" rx="8" className="fill-brand-600" />
-      <path
-        d="M9 20.5c2.2 0 3.4-1.2 4.4-3.1l1.4-2.8c1-1.9 2.2-3.1 4.4-3.1H23"
-        stroke="#fff"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-      />
-      <path d="m20 8.5 3.2 3-3.2 3" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="9" cy="20.5" r="1.9" fill="#fff" />
-    </svg>
+    <span
+      className={cn('grid size-9 shrink-0 place-items-center rounded-xl bg-brand-600 text-white shadow-xs', className)}
+      aria-hidden="true"
+    >
+      <BriefcaseBusiness className="size-5" strokeWidth={2.2} />
+    </span>
   );
 }
 
-export function Logo({ collapsed = false, onNavigate }) {
+export function Logo({ onNavigate }) {
   return (
     <Link
       to="/"
       onClick={onNavigate}
-      className="flex items-center gap-2.5 rounded-lg text-base font-semibold tracking-tight text-slate-900"
-      aria-label="CareerFlow home"
+      className="flex shrink-0 items-center gap-2.5 rounded-lg text-lg font-bold tracking-tight text-slate-900"
+      aria-label={`${APP_NAME} home`}
     >
       <LogoMark />
-      {!collapsed && <span>CareerFlow</span>}
+      <span>{APP_NAME}</span>
     </Link>
   );
 }

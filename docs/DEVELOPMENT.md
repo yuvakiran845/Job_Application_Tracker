@@ -171,3 +171,26 @@ Issues the new tests found, now fixed:
     - Browser tests: 36/36 under load and 36/36 in production mode.
 - **GitHub Actions upgraded** to the Node 24 versions (`checkout@v7`, `setup-node@v7`, `cache@v6`, `upload-artifact@v7`) to clear the Node 20 deprecation warnings.
 - **Not verified:** Node 22 on this machine (it has Node 20.19.6); CI and Render run 22.
+
+## Rebrand and redesign: My Job Trackr
+
+After Level 9, the app was renamed **My Job Trackr** and restyled to match a reference dashboard design.
+
+- **Scope of the rename:** everything users see changed (logo, page titles, messages, the CSV filename, and the docs). Internal names stayed, so nothing in production broke: the `careerflow` database, the `cf_session` cookie, the Render service, its URL, and the GitHub repository.
+- **Look:**
+  - A sticky top bar with all five pages; below 1024 px it becomes a drawer. It replaces the sidebar.
+  - A blue brand colour.
+  - A white page header band with the page's h1 and a short description. On the dashboard it's a greeting: "Welcome back, Asha! 👋".
+  - `rounded-2xl` cards with soft shadows, and coloured icon tiles in card headers.
+  - A green avatar with the user's initials, and an **Add Job** button.
+- **Dashboard:**
+  - Four stat cards: Applications ("+N applied this week"), Interviews ("N upcoming"), Offers, and Response rate. The response rate uses the Analytics page's all-time definition.
+  - List cards: Upcoming Interviews, Recent Applications ("Added 2 days ago", salary, status), Upcoming Deadlines, and the status breakdown, arranged in two columns so short cards leave no gaps.
+- **Accessibility found during the redesign:**
+  - The avatar's hover state dimmed its text to 3.93:1 contrast; it now darkens instead.
+  - Screen-reader-only text that began with a space produced names like "Frontend Engineerat Northwind Labs" in some accessible-name implementations. The space now sits outside the hidden text, including in the older "(opens in a new tab)" hints.
+- **Verification:**
+  - Server: `npm test`, 119 passing.
+  - Client: `npm test`, 146 passing (2 new, for `formatTimeAgo`), plus lint and build.
+  - Browser tests: 36/36 in development mode and 36/36 in production mode, including axe-core scans of every page, keyboard flows, and phone layouts.
+  - The screenshots were regenerated from the running app, and reviewing them caught a gap-leaving card layout, which was fixed.

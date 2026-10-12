@@ -182,7 +182,7 @@ export function DropdownMenuLink({ icon: Icon, href, children }) {
     >
       {Icon && <Icon className="size-4 text-slate-500" aria-hidden="true" />}
       {children}
-      <span className="sr-only"> (opens in a new tab)</span>
+      {' '}<span className="sr-only">(opens in a new tab)</span>
     </a>
   );
 }

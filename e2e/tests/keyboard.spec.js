@@ -8,7 +8,7 @@ test.describe('Keyboard-only use', () => {
 
   test('skip link jumps past the navigation to the page content', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: /^Welcome back/ })).toBeVisible();
     await page.keyboard.press('Tab');
     const skip = page.getByRole('link', { name: 'Skip to content' });
     await expect(skip).toBeFocused();
@@ -20,7 +20,7 @@ test.describe('Keyboard-only use', () => {
   test('navigate between pages with Tab and Enter', async ({ page }) => {
     await page.goto('/');
     const nav = page.getByRole('navigation', { name: 'Main' });
-    await nav.getByRole('link', { name: 'Applications' }).focus();
+    await nav.getByRole('link', { name: 'My Applications' }).focus();
     for (const [name, path] of [
       ['Pipeline', '/pipeline'],
       ['Calendar', '/calendar'],
@@ -39,7 +39,7 @@ test.describe('Keyboard-only use', () => {
 
   test('add an application without a mouse; Escape closes dialogs and restores focus', async ({ page }) => {
     await page.goto('/applications');
-    const addButton = page.getByRole('banner').getByRole('button', { name: 'Add application' });
+    const addButton = page.getByRole('banner').getByRole('button', { name: 'Add Job' });
 
     // Escape closes the dialog and returns focus to the button that opened it.
     await addButton.focus();

@@ -1,99 +1,77 @@
-import { useState } from 'react';
-import { ArrowRight, BriefcaseBusiness, CircleX, Inbox, MessagesSquare, Plus, Trophy } from 'lucide-react';
-import { ApplicationsTable, ApplicationsTableSkeleton } from '../components/applications/ApplicationsTable';
+import { useMemo, useState } from 'react';
+import { CalendarDays, ChartColumn, ChartPie, CircleCheck, FileText } from 'lucide-react';
 import { LoadErrorAlert } from '../components/applications/LoadErrorAlert';
+import { RecentApplications, UpcomingDeadlines, UpcomingInterviews } from '../components/dashboard/DashboardLists';
 import { StatCard, StatCardSkeleton } from '../components/dashboard/StatCard';
 import { StatusBreakdown } from '../components/dashboard/StatusBreakdown';
-import { UpcomingCard } from '../components/dashboard/UpcomingCard';
-import { Button, ButtonLink } from '../components/ui/Button';
-import { Card, CardHeader } from '../components/ui/Card';
-import { EmptyState } from '../components/ui/EmptyState';
 import { useApplicationActions } from '../hooks/useApplicationActions';
-import { useApplicationStats, useRecentApplications } from '../hooks/useApplicationData';
-import { useAuth } from '../hooks/useAuth';
-import { formatLongDate, getGreeting } from '../utils/date';
+import { useAnalytics, useApplicationStats, useEvents, useRecentApplications } from '../hooks/useApplicationData';
+import { formatPercent } from '../utils/analytics';
+import { isUpcomingEvent, sortEvents, toEventRange } from '../utils/calendar';
+import { addDays, toISODate } from '../utils/date';
 import { pluralize } from '../utils/format';
-import { RECENT_WINDOW_DAYS } from '../utils/stats';
 
-const RECENT_LIMIT = 5;
-
-function getFirstName(user) {
-  return user?.name?.trim().split(/\s+/)[0] ?? '';
-}
+const RECENT_LIMIT = 4;
+const LIST_LIMIT = 4;
+const UPCOMING_DAYS = 30;
+// Same definitions as the Analytics page, over all time.
+const ALL_TIME = { from: '', to: '' };
 
 export default function DashboardPage() {
   const { openAdd } = useApplicationActions();
-  const { user, enabled: authEnabled } = useAuth();
   const statsQuery = useApplicationStats();
+  const analyticsQuery = useAnalytics(ALL_TIME);
   const recentQuery = useRecentApplications(RECENT_LIMIT);
+
   const [now] = useState(() => new Date());
+  const today = toISODate(now);
+  const eventRange = useMemo(() => toEventRange(now, addDays(now, UPCOMING_DAYS - 1)), [now]);
+  const eventsQuery = useEvents(eventRange);
+  const { interviews, deadlines } = useMemo(() => {
+    const upcoming = sortEvents((eventsQuery.data ?? []).filter((event) => isUpcomingEvent(event, today)));
+    return {
+      interviews: upcoming.filter((event) => event.type === 'interview'),
+      deadlines: upcoming.filter((event) => event.type === 'deadline'),
+    };
+  }, [eventsQuery.data, today]);
 
   const stats = statsQuery.data;
-  const loading = statsQuery.isPending;
-  const firstName = authEnabled ? getFirstName(user) : '';
+  const analytics = analyticsQuery.data;
+  const loading = statsQuery.isPending || analyticsQuery.isPending;
+  const addedThisWeek = stats?.appliedSince.count ?? 0;
 
   const statCards = [
     {
-      label: 'Total applications',
+      label: 'Applications',
       value: stats?.total,
-      footnote: `${pluralize(stats?.appliedSince.count ?? 0, 'application')} sent in the last ${RECENT_WINDOW_DAYS} days`,
-      icon: BriefcaseBusiness,
+      footnote: addedThisWeek > 0 ? `+${addedThisWeek} applied this week` : 'None applied this week',
+      trend: addedThisWeek > 0 ? 'up' : undefined,
+      icon: FileText,
       tone: 'brand',
     },
     {
       label: 'Interviews',
       value: stats?.interviews,
-      footnote: 'Currently at the interview stage',
-      icon: MessagesSquare,
-      tone: 'violet',
+      footnote: eventsQuery.isSuccess ? (interviews.length > 0 ? `${interviews.length} upcoming` : 'None scheduled') : '',
+      icon: CalendarDays,
+      tone: 'brand',
     },
-    { label: 'Offers', value: stats?.offers, footnote: 'Offers received', icon: Trophy, tone: 'success' },
+    { label: 'Offers', value: stats?.offers, footnote: 'Offers received', icon: CircleCheck, tone: 'success' },
     {
-      label: 'Rejections',
-      value: stats?.rejections,
-      footnote: 'Closed by the employer',
-      icon: CircleX,
-      tone: 'danger',
+      label: 'Response rate',
+      value: analyticsQuery.isError ? '—' : formatPercent(analytics?.rates.response),
+      footnote: analyticsQuery.isError
+        ? 'Unavailable right now'
+        : analytics?.totals.submitted
+          ? `${analytics.totals.responded} of ${pluralize(analytics.totals.submitted, 'application')}`
+          : 'No applications sent yet',
+      icon: ChartColumn,
+      tone: 'violet',
     },
   ];
 
-  let recentContent;
-  if (recentQuery.isPending) {
-    recentContent = <ApplicationsTableSkeleton rows={RECENT_LIMIT} />;
-  } else if (recentQuery.isError) {
-    recentContent = (
-      <LoadErrorAlert error={recentQuery.error} onRetry={() => recentQuery.refetch()} className="m-4 sm:m-5" />
-    );
-  } else if (recentQuery.data.items.length === 0) {
-    recentContent = (
-      <EmptyState
-        icon={Inbox}
-        title="No applications yet"
-        description="Add the first role you’ve applied to and CareerFlow will start tracking your progress."
-        action={
-          <Button icon={Plus} onClick={openAdd}>
-            Add application
-          </Button>
-        }
-      />
-    );
-  } else {
-    recentContent = (
-      <ApplicationsTable applications={recentQuery.data.items} caption="Recently added applications" showLocation={false} />
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm text-slate-500">{formatLongDate(now)}</p>
-        <h2 className="mt-0.5 text-xl font-semibold tracking-tight text-slate-900">
-          {getGreeting(now)}
-          {firstName && `, ${firstName}`}
-        </h2>
-        <p className="mt-1 text-sm text-slate-600">Here’s where your job search stands today.</p>
-      </div>
-
+    <div className="space-y-6 lg:space-y-8">
       {statsQuery.isError ? (
         <LoadErrorAlert
           error={statsQuery.error}
@@ -102,7 +80,7 @@ export default function DashboardPage() {
         />
       ) : (
         <section aria-label="Key metrics" aria-busy={loading}>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
             {loading
               ? statCards.map((card) => <StatCardSkeleton key={card.label} />)
               : statCards.map((card) => <StatCard key={card.label} {...card} />)}
@@ -110,32 +88,30 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* Wide screens: the breakdown and recent applications stack on the left with
-          Upcoming beside both. Upcoming's extra height goes to the flexible second row,
-          so the left-hand cards never stretch into empty space. */}
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem] xl:grid-rows-[auto_1fr] xl:items-start">
-        {!statsQuery.isError && (
-          <div className="min-w-0 xl:col-start-1">
-            <StatusBreakdown byStatus={stats?.byStatus} total={stats?.total ?? 0} loading={loading} />
-          </div>
-        )}
-        <div className="min-w-0 xl:col-start-2 xl:row-span-2 xl:row-start-1">
-          <UpcomingCard />
-        </div>
-        <Card aria-labelledby="recent-applications-title" className="min-w-0 xl:col-start-1">
-          <CardHeader
-            titleId="recent-applications-title"
-            title="Recently added"
-            description="Your newest applications, most recent first."
-            action={
-              <ButtonLink to="/applications" variant="ghost" size="sm" className="-mr-2">
-                View all
-                <ArrowRight className="size-4" aria-hidden="true" />
-              </ButtonLink>
-            }
+      {/* Two independent columns, so a short card never leaves a gap beside a tall one.
+          On phones: interviews, deadlines, recent applications, then the breakdown. */}
+      <div className="grid items-start gap-6 lg:grid-cols-2 lg:gap-8">
+        <div className="min-w-0 space-y-6 lg:space-y-8">
+          <UpcomingInterviews
+            query={eventsQuery}
+            events={interviews.slice(0, LIST_LIMIT)}
+            today={today}
+            days={UPCOMING_DAYS}
           />
-          {recentContent}
-        </Card>
+          <UpcomingDeadlines query={eventsQuery} events={deadlines.slice(0, LIST_LIMIT)} today={today} days={UPCOMING_DAYS} />
+        </div>
+        <div className="min-w-0 space-y-6 lg:space-y-8">
+          <RecentApplications query={recentQuery} onAdd={openAdd} />
+          {!statsQuery.isError && (
+            <StatusBreakdown
+              byStatus={stats?.byStatus}
+              total={stats?.total ?? 0}
+              loading={statsQuery.isPending}
+              icon={ChartPie}
+              iconTone="violet"
+            />
+          )}
+        </div>
       </div>
     </div>
   );
